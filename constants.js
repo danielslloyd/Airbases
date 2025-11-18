@@ -13,7 +13,7 @@ const CONSTANTS = {
   HP_RECOVERY_PER_TICK: 60 / 600,        // 0.1 HP per 100ms tick
 
   // Production
-  POP_SCALE: 1000000,                       // Divide population by this for production
+  POP_SCALE: 100000,                       // Divide population by this for production
   AIRBASE_COST_M: 50,                    // Cost to build an airbase (in Millions)
   BOMBER_BASE_COST_M: 3,                 // Default bomber cost
   FIGHTER_BASE_COST_M: 1,                // Default fighter cost
