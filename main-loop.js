@@ -76,22 +76,22 @@ const MainLoop = {
    * Process raid dispatch schedules
    */
   processDispatchSchedules() {
-    const dispatchInterval = CONSTANTS.RAID_DISPATCH_INTERVAL_S;
-
     for (const city of GameState.cities) {
       if (!city.hasAirbase || !city.airbase || !city.airbase.complete) continue;
       if (!city.airbase.orders) continue;
 
       const cityId = city.id;
 
-      // Check if it's time to dispatch
-      const lastDispatch = this.lastDispatchTimes.get(cityId) || 0;
-      const timeSinceDispatch = GameState.elapsedSeconds - lastDispatch;
+      // Check rest period (set after raid returns)
+      const restUntil = this.lastDispatchTimes.get(cityId) || 0;
+      if (GameState.elapsedSeconds < restUntil) continue;
 
-      if (timeSinceDispatch >= dispatchInterval) {
-        this.dispatchRaid(city);
-        this.lastDispatchTimes.set(cityId, GameState.elapsedSeconds);
-      }
+      // Check if we have idle bombers
+      const idleBombers = GameState.getBombersAtCity(cityId).filter(b => b.status === 'idle');
+      if (idleBombers.length === 0) continue;
+
+      // Dispatch raid immediately
+      this.dispatchRaid(city);
     }
   },
 
@@ -131,6 +131,10 @@ const MainLoop = {
       targetCity.lat, targetCity.lon
     );
 
+    // Calculate timing based on 10km/sec speed
+    const oneWayTimeS = distance / CONSTANTS.RAID_SPEED_KM_PER_SEC;
+    const roundTripTimeS = oneWayTimeS * 2;
+
     // Create raid
     const raid = {
       id: `raid-${GameState.raidIdCounter++}`,
@@ -141,11 +145,13 @@ const MainLoop = {
       escorts: escorts,
       distance: distance,
       progress: 0, // 0 to 1
-      speed: 500, // km per minute (arbitrary)
-      durationMinutes: distance / 500,
+      oneWayTimeS: oneWayTimeS,
+      roundTripTimeS: roundTripTimeS,
       startTime: GameState.elapsedSeconds,
       status: 'enroute', // 'enroute', 'engaging', 'attacking', 'returning', 'completed'
-      hasEngagedDefenders: false
+      returning: false,
+      hasEngagedDefenders: false,
+      restingUntil: 0 // Time when rest period ends
     };
 
     // Mark aircraft as on raid
@@ -169,14 +175,17 @@ const MainLoop = {
    * @param {number} deltaMs - Time delta
    */
   moveAircraft(deltaMs) {
-    const deltaMinutes = deltaMs / 60000;
+    const deltaS = deltaMs / 1000;
 
     for (const raid of GameState.activeRaids) {
       if (raid.status === 'completed') continue;
 
-      // Update progress
+      // Update progress based on 10km/sec speed
       if (raid.status === 'enroute' || raid.status === 'engaging') {
-        raid.progress += deltaMinutes / raid.durationMinutes;
+        raid.progress += deltaS / raid.oneWayTimeS;
+        raid.progress = Math.min(1, raid.progress);
+      } else if (raid.status === 'returning') {
+        raid.progress += deltaS / raid.oneWayTimeS;
         raid.progress = Math.min(1, raid.progress);
       }
     }
@@ -267,15 +276,23 @@ const MainLoop = {
     for (const raid of GameState.activeRaids) {
       if (raid.status === 'completed') continue;
 
-      // Check if raid has arrived
-      if (raid.progress >= 1.0 && raid.status !== 'attacking') {
+      // Check if raid has arrived at target
+      if (raid.progress >= 1.0 && raid.status === 'enroute') {
         raid.status = 'attacking';
         this.resolveRaidAttack(raid);
+        // Start return journey
+        raid.status = 'returning';
+        raid.returning = true;
+        raid.progress = 0;
+      }
+
+      // Check if raid has returned to base
+      if (raid.progress >= 1.0 && raid.status === 'returning') {
         completedRaids.push(raid);
       }
     }
 
-    // Remove completed raids and return aircraft
+    // Complete raids and return aircraft with rest period
     for (const raid of completedRaids) {
       raid.status = 'completed';
 
@@ -294,6 +311,9 @@ const MainLoop = {
             escort.locationCityId = fromCity.id;
           }
         }
+
+        // Set rest period - aircraft can't dispatch again for 5 seconds
+        this.lastDispatchTimes.set(fromCity.id, GameState.elapsedSeconds + CONSTANTS.RAID_REST_TIME_S);
       }
     }
 

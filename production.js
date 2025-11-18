@@ -94,6 +94,7 @@ const ProductionSystem = {
         team.fighterProgress -= 100;
         if (team.deliveryPointCity) {
           GameState.createAircraft(fighterTemplate.id, team.deliveryPointCity.id, teamName);
+          console.log(`${teamName} built ${fighterTemplate.name}`);
         }
       }
     }
@@ -107,12 +108,10 @@ const ProductionSystem = {
         team.bomberProgress -= 100;
         if (team.deliveryPointCity) {
           GameState.createAircraft(bomberTemplate.id, team.deliveryPointCity.id, teamName);
+          console.log(`${teamName} built ${bomberTemplate.name}`);
         }
       }
     }
-
-    // Keep accumulated for display purposes
-    team.productionAccumulated += productionThisTick;
   },
 
   /**

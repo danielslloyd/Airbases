@@ -48,11 +48,15 @@ const CONSTANTS = {
   MAX_COLOR_LUMINANCE: 0.92,             // Maximum luminance for team colors (prevent too light)
 
   // Rendering
-  CITY_DOT_RADIUS: 1.5,                  // Radius for city dots
-  CITY_DOT_RADIUS_PLACEHOLDER: 1,        // Radius for placeholder cities
-  AIRBASE_HALO_RADIUS: 5,                // Halo around airbases
-  DELIVERY_SQUARE_SIZE: 4,               // Size of delivery point square
-  CAPTURE_RING_WIDTH: 1.5,               // Width of capture progress ring
+  CITY_DOT_RADIUS: 4,                    // Radius for city dots (larger)
+  CITY_DOT_RADIUS_PLACEHOLDER: 2.5,      // Radius for placeholder cities
+  AIRBASE_HALO_RADIUS: 8,                // Halo around airbases
+  DELIVERY_SQUARE_SIZE: 6,               // Size of delivery point square
+  CAPTURE_RING_WIDTH: 2,                 // Width of capture progress ring
+
+  // Raid timing
+  RAID_SPEED_KM_PER_SEC: 10,             // Aircraft travel at 10 km/sec
+  RAID_REST_TIME_S: 5,                   // Rest time after returning from raid
 
   // City Filtering
   MIN_CITY_SPACING_KM: 200,              // Minimum distance between cities
