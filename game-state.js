@@ -190,6 +190,7 @@ const GameState = {
       type: template.type,
       templateId: templateId,
       locationCityId: cityId,
+      homeCityId: cityId, // Assigned base - stays even when in flight
       status: 'idle',
       hp: 1,
       owner: teamName
@@ -225,12 +226,21 @@ const GameState = {
   },
 
   /**
-   * Get aircraft at a specific city
+   * Get aircraft at a specific city (idle only)
    * @param {string} cityId - City ID
    * @returns {Array} Aircraft at this city
    */
   getAircraftAtCity(cityId) {
-    return this.aircraft.filter(a => a.locationCityId === cityId && a.status === 'idle');
+    return this.aircraft.filter(a => a.locationCityId === cityId && a.status === 'idle' && a.hp > 0);
+  },
+
+  /**
+   * Get all aircraft assigned to a city (including those in flight)
+   * @param {string} cityId - City ID
+   * @returns {Array} Aircraft assigned to this city
+   */
+  getAircraftAssignedToCity(cityId) {
+    return this.aircraft.filter(a => a.homeCityId === cityId && a.hp > 0);
   },
 
   /**
@@ -249,6 +259,42 @@ const GameState = {
    */
   getBombersAtCity(cityId) {
     return this.getAircraftAtCity(cityId).filter(a => a.type === 'bomber');
+  },
+
+  /**
+   * Get bombers assigned to a city (including those in flight)
+   * @param {string} cityId - City ID
+   * @returns {Array} Bombers assigned to this city
+   */
+  getBombersAssignedToCity(cityId) {
+    return this.getAircraftAssignedToCity(cityId).filter(a => a.type === 'bomber');
+  },
+
+  /**
+   * Re-base aircraft to a new city
+   * @param {string} aircraftId - Aircraft ID
+   * @param {string} newCityId - New home city ID
+   */
+  rebaseAircraft(aircraftId, newCityId) {
+    const aircraft = this.aircraft.find(a => a.id === aircraftId);
+    if (aircraft && aircraft.status === 'idle') {
+      aircraft.homeCityId = newCityId;
+      aircraft.locationCityId = newCityId;
+    }
+  },
+
+  /**
+   * Re-base all aircraft from one city to another
+   * @param {string} fromCityId - Source city ID
+   * @param {string} toCityId - Destination city ID
+   */
+  rebaseAllAircraft(fromCityId, toCityId) {
+    const aircraft = this.getAircraftAtCity(fromCityId);
+    for (const a of aircraft) {
+      a.homeCityId = toCityId;
+      a.locationCityId = toCityId;
+    }
+    console.log(`Rebased ${aircraft.length} aircraft from ${fromCityId} to ${toCityId}`);
   },
 
   /**

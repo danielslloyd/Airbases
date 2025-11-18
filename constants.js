@@ -46,6 +46,8 @@ const CONSTANTS = {
   // UI / Colors
   MIN_COLOR_LUMINANCE: 0.08,             // Minimum luminance for team colors (prevent too dark)
   MAX_COLOR_LUMINANCE: 0.92,             // Maximum luminance for team colors (prevent too light)
+  OCEAN_COLOR: '#E0DCD7',                // Ocean/water color
+  LAND_COLOR: '#B8B0A7',                 // Land/terrain color
 
   // Rendering
   CITY_DOT_RADIUS: 4,                    // Radius for city dots (larger)

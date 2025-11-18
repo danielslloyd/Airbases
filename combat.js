@@ -164,6 +164,9 @@ const CombatSystem = {
     // Reset HP to 0
     city.hp = 0;
 
+    // Clear any bomber orders targeting this city (prevent friendly fire)
+    this.clearTargetingForCity(city.id);
+
     // Destroy airbase if it exists
     if (city.hasAirbase) {
       city.hasAirbase = false;
@@ -179,6 +182,21 @@ const CombatSystem = {
 
     if (GameState.debugLogCombat) {
       console.log(`${newOwner} captured ${city.name} from ${oldOwner || 'neutral'}`);
+    }
+  },
+
+  /**
+   * Clear all bomber orders targeting a specific city
+   * @param {string} cityId - Target city ID to clear
+   */
+  clearTargetingForCity(cityId) {
+    for (const city of GameState.cities) {
+      if (city.hasAirbase && city.airbase && city.airbase.orders) {
+        if (city.airbase.orders.targetCityId === cityId) {
+          city.airbase.orders = null;
+          console.log(`Cleared targeting for ${city.name} - target was captured`);
+        }
+      }
     }
   },
 

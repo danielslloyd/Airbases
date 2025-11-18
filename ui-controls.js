@@ -600,9 +600,182 @@ const UIControls = {
       } else {
         setBomberTargetBtn.style.display = 'none';
       }
+
+      // Re-base button
+      const rebaseBtn = document.getElementById('rebase-btn');
+      if (rebaseBtn && city.hasAirbase && city.airbase && city.airbase.complete) {
+        const aircraftHere = GameState.getAircraftAtCity(city.id);
+        if (aircraftHere.length > 0) {
+          rebaseBtn.style.display = 'block';
+          rebaseBtn.onclick = () => {
+            this.showRebaseSelector(city);
+          };
+        } else {
+          rebaseBtn.style.display = 'none';
+        }
+      } else if (rebaseBtn) {
+        rebaseBtn.style.display = 'none';
+      }
+
+      // Show warning if bombers but no target
+      const warningIndicator = document.getElementById('popup-warning');
+      if (warningIndicator) {
+        const bombers = GameState.getBombersAtCity(city.id);
+        if (bombers.length > 0 && (!city.airbase.orders || !city.airbase.orders.targetCityId)) {
+          warningIndicator.style.display = 'block';
+          warningIndicator.textContent = '! NO TARGET';
+        } else {
+          warningIndicator.style.display = 'none';
+        }
+      }
     } else {
       airbaseControls.style.display = 'none';
     }
+  },
+
+  /**
+   * Show re-base selector (2x range, friendly cities only)
+   */
+  showRebaseSelector(airbaseCity) {
+    const aircraft = GameState.getAircraftAtCity(airbaseCity.id);
+    if (aircraft.length === 0) {
+      console.log('No aircraft to re-base');
+      return;
+    }
+
+    // Get max range (2x for re-basing)
+    const maxRange = Math.max(...aircraft.map(a => {
+      const template = GameState.getTemplate(a.templateId);
+      return template ? template.rangePoints * CONSTANTS.RANGE_KM_PER_POINT * 2 : 0;
+    }));
+
+    // Find friendly cities with airbases in range
+    const targets = GameState.cities.filter(c => {
+      if (c.id === airbaseCity.id) return false;
+      if (c.owner !== airbaseCity.owner) return false;
+      if (!c.hasAirbase || !c.airbase || !c.airbase.complete) return false;
+      const distance = MapUtils.greatCircleDistance(
+        airbaseCity.lat, airbaseCity.lon,
+        c.lat, c.lon
+      );
+      return distance <= maxRange;
+    });
+
+    if (targets.length === 0) {
+      console.log('No friendly airbases in range');
+      return;
+    }
+
+    // Show visual selector
+    this.showRebaseVisualSelector(airbaseCity, targets, maxRange);
+  },
+
+  /**
+   * Show visual re-base selector
+   */
+  showRebaseVisualSelector(airbaseCity, targets, maxRange) {
+    const self = this;
+    const svg = Renderer.svg;
+    const projection = Renderer.projection;
+    if (!svg || !projection) return;
+
+    let targetLayer = svg.select('.target-selection-layer');
+    if (targetLayer.empty()) {
+      targetLayer = svg.append('g').attr('class', 'target-selection-layer');
+    }
+    targetLayer.selectAll('*').remove();
+
+    // Draw range circle (cyan for re-base)
+    const rangeCirclePoints = this.generateRangeCircle(airbaseCity, maxRange, 64);
+    const lineGenerator = d3.svg.line()
+      .x(function(d) { return d[0]; })
+      .y(function(d) { return d[1]; })
+      .interpolate('linear');
+
+    const projectedPoints = rangeCirclePoints.map(function(p) {
+      return projection([p.lon, p.lat]);
+    }).filter(function(p) { return p !== null; });
+
+    if (projectedPoints.length > 0) {
+      targetLayer.append('path')
+        .attr('class', 'range-circle')
+        .attr('d', lineGenerator(projectedPoints) + 'Z')
+        .style('fill', 'rgba(0, 255, 255, 0.1)')
+        .style('stroke', '#0ff')
+        .style('stroke-width', 2)
+        .style('stroke-dasharray', '5,5');
+    }
+
+    // Highlight friendly airbases
+    targets.forEach(function(target) {
+      const projected = projection([target.lon, target.lat]);
+      if (!projected) return;
+
+      const rotation = projection.rotate();
+      const centerLon = -rotation[0];
+      const centerLat = -rotation[1];
+      const toRad = Math.PI / 180;
+      const cosAngle = Math.sin(centerLat * toRad) * Math.sin(target.lat * toRad) +
+                       Math.cos(centerLat * toRad) * Math.cos(target.lat * toRad) *
+                       Math.cos((target.lon - centerLon) * toRad);
+      if (cosAngle < 0) return;
+
+      const group = targetLayer.append('g')
+        .attr('class', 'target-marker')
+        .attr('transform', 'translate(' + projected[0] + ', ' + projected[1] + ')')
+        .style('cursor', 'pointer');
+
+      group.append('circle')
+        .attr('r', 8)
+        .style('fill', 'rgba(0, 255, 255, 0.3)')
+        .style('stroke', '#0ff')
+        .style('stroke-width', 2);
+
+      group.append('text')
+        .attr('x', 12)
+        .attr('y', 4)
+        .style('fill', '#fff')
+        .style('font-size', '10px')
+        .style('font-weight', 'bold')
+        .style('text-shadow', '1px 1px 2px #000')
+        .text(target.name);
+
+      group.on('click', function() {
+        d3.event.stopPropagation();
+        GameState.rebaseAllAircraft(airbaseCity.id, target.id);
+        self.clearTargetSelection();
+        self.showCityPopup(target);
+        console.log('Re-based aircraft to ' + target.name);
+      });
+    });
+
+    // Cancel button
+    const cancelGroup = targetLayer.append('g')
+      .attr('class', 'cancel-selection')
+      .attr('transform', 'translate(10, 30)')
+      .style('cursor', 'pointer');
+
+    cancelGroup.append('rect')
+      .attr('width', 120)
+      .attr('height', 25)
+      .attr('rx', 4)
+      .style('fill', 'rgba(0, 0, 0, 0.8)');
+
+    cancelGroup.append('text')
+      .attr('x', 60)
+      .attr('y', 17)
+      .attr('text-anchor', 'middle')
+      .style('fill', '#fff')
+      .style('font-size', '12px')
+      .text('Cancel Re-base');
+
+    cancelGroup.on('click', function() {
+      self.clearTargetSelection();
+    });
+
+    svg.on('click.targetSelect', function() {
+      self.clearTargetSelection();
+    });
   },
 
   /**
