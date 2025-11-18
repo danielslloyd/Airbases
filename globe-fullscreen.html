@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fullscreen Globe (γ=0)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: #e8f4f8;
+            font-family: sans-serif;
+        }
+
+        #globe-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        svg {
+            display: block;
+        }
+
+        .graticule {
+            fill: none;
+            stroke: #ccc;
+            stroke-width: 0.5px;
+            stroke-dasharray: 2,2;
+        }
+
+        .land {
+            fill: #2a7f62;
+            stroke: none;
+        }
+
+        .boundary {
+            fill: none;
+            stroke: #fff;
+            stroke-width: 0.5px;
+        }
+
+        .globe-sphere {
+            fill: #d4e8f0;
+            stroke: #89b6c9;
+            stroke-width: 1.5px;
+        }
+
+        .foreground {
+            fill: none;
+            stroke: transparent;
+            stroke-width: 1px;
+            pointer-events: all;
+            cursor: grab;
+        }
+
+        .foreground:active {
+            cursor: grabbing;
+        }
+
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #2a7f62;
+            font-size: 14px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            border: 1px solid #89b6c9;
+        }
+    </style>
+</head>
+<body>
+    <div id="globe-container"></div>
+    <div id="info">
+        <div>Drag to rotate (γ component locked to 0)</div>
+        <div id="rotation-display"></div>
+    </div>
+
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+    <script src="https://d3js.org/d3.geo.projection.v0.min.js"></script>
+    <script src="https://d3js.org/topojson.v1.min.js"></script>
+
+    <script>
+        // Versor library implementation for quaternion-based rotation
+        // Based on Mike Bostock's versor.js for proper globe rotation
+        (function() {
+            var acos = Math.acos,
+                asin = Math.asin,
+                atan2 = Math.atan2,
+                cos = Math.cos,
+                max = Math.max,
+                min = Math.min,
+                PI = Math.PI,
+                sin = Math.sin,
+                sqrt = Math.sqrt,
+                radians = PI / 180,
+                degrees = 180 / PI;
+
+            // Creates a quaternion from Euler angles [λ, φ, γ] in degrees
+            function versor(e) {
+                var l = e[0] / 2 * radians,
+                    p = e[1] / 2 * radians,
+                    g = e[2] / 2 * radians,
+                    sl = sin(l), cl = cos(l),
+                    sp = sin(p), cp = cos(p),
+                    sg = sin(g), cg = cos(g);
+                return [
+                    cl * cp * cg + sl * sp * sg,
+                    sl * cp * cg - cl * sp * sg,
+                    cl * sp * cg + sl * cp * sg,
+                    cl * cp * sg - sl * sp * cg
+                ];
+            }
+
+            // Converts a quaternion to Euler angles [λ, φ, γ] in degrees
+            versor.rotation = function(q) {
+                return [
+                    atan2(2 * (q[0] * q[1] + q[2] * q[3]), 1 - 2 * (q[1] * q[1] + q[2] * q[2])) * degrees,
+                    asin(max(-1, min(1, 2 * (q[0] * q[2] - q[3] * q[1])))) * degrees,
+                    atan2(2 * (q[0] * q[3] + q[1] * q[2]), 1 - 2 * (q[2] * q[2] + q[3] * q[3])) * degrees
+                ];
+            };
+
+            // Converts spherical coordinates [λ, φ] in degrees to Cartesian [x, y, z]
+            versor.cartesian = function(e) {
+                var l = e[0] * radians, p = e[1] * radians, cp = cos(p);
+                return [cp * cos(l), cp * sin(l), sin(p)];
+            };
+
+            // Returns the quaternion to rotate between two Cartesian points
+            versor.delta = function(v0, v1) {
+                var w = cross(v0, v1), l = sqrt(dot(w, w));
+                if (!l) return [1, 0, 0, 0];
+                var t = acos(max(-1, min(1, dot(v0, v1)))) / 2, s = sin(t);
+                return [cos(t), w[2] / l * s, -w[1] / l * s, w[0] / l * s];
+            };
+
+            // Quaternion multiplication
+            versor.multiply = function(a, b) {
+                return [
+                    a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+                    a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+                    a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+                    a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0]
+                ];
+            };
+
+            function cross(v0, v1) {
+                return [
+                    v0[1] * v1[2] - v0[2] * v1[1],
+                    v0[2] * v1[0] - v0[0] * v1[2],
+                    v0[0] * v1[1] - v0[1] * v1[0]
+                ];
+            }
+
+            function dot(v0, v1) {
+                return v0[0] * v1[0] + v0[1] * v1[1] + v0[2] * v1[2];
+            }
+
+            window.versor = versor;
+        })();
+    </script>
+
+    <script>
+        // Wait for all libraries to load
+        window.addEventListener('load', function() {
+            // Get dimensions
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const radius = Math.min(width, height) * 0.45;
+
+            // Create projection with γ (gamma) locked to 0
+            const projection = d3.geo.orthographic()
+                .scale(radius)
+                .translate([width / 2, height / 2])
+                .clipAngle(90)
+                .rotate([0, 0, 0]); // [λ, φ, γ] - we'll keep γ at 0
+
+            const path = d3.geo.path()
+                .projection(projection);
+
+            const graticule = d3.geo.graticule();
+
+            // Create SVG
+            const svg = d3.select("#globe-container").append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            // Add globe sphere background
+            svg.append("path")
+                .datum({type: "Sphere"})
+                .attr("class", "globe-sphere")
+                .attr("d", path);
+
+            // Add graticule
+            svg.append("path")
+                .datum(graticule)
+                .attr("class", "graticule")
+                .attr("d", path);
+
+            // Groups for land and boundaries
+            const landGroup = svg.append("g").attr("class", "land-group");
+            const boundaryGroup = svg.append("g").attr("class", "boundary-group");
+
+            // Foreground sphere for mouse interaction
+            const foreground = svg.append("path")
+                .datum({type: "Sphere"})
+                .attr("class", "foreground")
+                .attr("d", path);
+
+            // Load world data
+            d3.json("https://cdn.jsdelivr.net/npm/world-atlas@1/world/110m.json", function(error, world) {
+                if (error) {
+                    console.error("Error loading world data:", error);
+                    return;
+                }
+
+                const countries = topojson.feature(world, world.objects.countries);
+                const borders = topojson.mesh(world, world.objects.countries, function(a, b) { return a !== b; });
+
+                // Draw land
+                landGroup.selectAll(".land")
+                    .data(countries.features)
+                    .enter().append("path")
+                    .attr("class", "land")
+                    .attr("d", path);
+
+                // Draw boundaries
+                boundaryGroup.append("path")
+                    .datum(borders)
+                    .attr("class", "boundary")
+                    .attr("d", path);
+            });
+
+            // Rotation display
+            const rotationDisplay = d3.select("#rotation-display");
+
+            function updateRotationDisplay(r) {
+                rotationDisplay.html(`λ: ${r[0].toFixed(1)}°, φ: ${r[1].toFixed(1)}°, γ: ${r[2].toFixed(1)}° (locked to 0)`);
+            }
+
+            // Versor-based drag behavior with γ locked to 0
+            let v0, r0, q0;
+
+            const drag = d3.behavior.drag()
+                .on("dragstart", function() {
+                    const p = d3.mouse(this);
+                    const inverted = projection.invert(p);
+                    if (!inverted) return; // clicked outside projection
+
+                    v0 = versor.cartesian(inverted);
+                    r0 = projection.rotate();
+                    q0 = versor(r0);
+                })
+                .on("drag", function() {
+                    if (!v0) return;
+
+                    const p = d3.mouse(this);
+                    const inverted = projection.invert(p);
+                    if (!inverted) return;
+
+                    const v1 = versor.cartesian(inverted);
+                    const delta = versor.delta(v0, v1);
+                    let q1 = versor.multiply(q0, delta);
+
+                    // Convert quaternion to Euler angles
+                    let r1 = versor.rotation(q1);
+
+                    // Lock γ to 0
+                    r1[2] = 0;
+
+                    // Convert back to quaternion with γ=0 to maintain consistency
+                    q0 = versor(r1);
+                    v0 = v1;
+
+                    // Apply rotation
+                    projection.rotate(r1);
+
+                    // Update all paths
+                    svg.selectAll("path").attr("d", path);
+
+                    updateRotationDisplay(r1);
+                });
+
+            foreground.call(drag);
+
+            // Initial rotation display
+            updateRotationDisplay(projection.rotate());
+
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                location.reload(); // Simple reload on resize
+            });
+        });
+    </script>
+</body>
+</html>
