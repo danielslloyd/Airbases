@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air War Game - WWII Strategy</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: #1a1a2e;
+            font-family: 'Arial', sans-serif;
+            color: #eee;
+        }
+
+        /* Launch Screen */
+        #launch-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        #launch-screen h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+            color: #f39c12;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        #launch-screen h2 {
+            font-size: 24px;
+            margin-bottom: 30px;
+            color: #bbb;
+        }
+
+        .launch-section {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px 0;
+            width: 600px;
+            max-width: 90%;
+        }
+
+        .launch-section h3 {
+            margin-bottom: 15px;
+            color: #f39c12;
+        }
+
+        .input-group {
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .input-group label {
+            flex: 1;
+        }
+
+        .input-group input, .input-group select {
+            flex: 1;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background: #2a2a3e;
+            color: #eee;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #f39c12;
+            color: #000;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #e67e22;
+        }
+
+        #start-game-btn {
+            margin-top: 20px;
+            font-size: 20px;
+            padding: 15px 40px;
+        }
+
+        .country-list {
+            max-height: 300px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .country-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px;
+            margin: 3px 0;
+        }
+
+        .country-item label {
+            flex: 1;
+        }
+
+        .country-item select {
+            flex: 0 0 120px;
+        }
+
+        /* Game UI */
+        #game-ui {
+            display: none;
+            width: 100%;
+            height: 100%;
+        }
+
+        #globe-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: #e8f4f8;
+        }
+
+        svg {
+            display: block;
+        }
+
+        .graticule {
+            fill: none;
+            stroke: #ccc;
+            stroke-width: 0.5px;
+            stroke-dasharray: 2,2;
+        }
+
+        .land {
+            fill: #2a7f62;
+            stroke: none;
+        }
+
+        .boundary {
+            fill: none;
+            stroke: #fff;
+            stroke-width: 0.5px;
+        }
+
+        .globe-sphere {
+            fill: #d4e8f0;
+            stroke: #89b6c9;
+            stroke-width: 1.5px;
+        }
+
+        .foreground {
+            fill: none;
+            stroke: transparent;
+            stroke-width: 1px;
+            pointer-events: all;
+            cursor: grab;
+        }
+
+        .foreground:active {
+            cursor: grabbing;
+        }
+
+        /* Left Panel */
+        #left-panel {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 300px;
+            height: 100%;
+            background: rgba(26, 26, 46, 0.95);
+            padding: 20px;
+            overflow-y: auto;
+            z-index: 100;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+        }
+
+        #left-panel h2 {
+            color: #f39c12;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+
+        #left-panel h3 {
+            color: #bbb;
+            margin: 15px 0 10px 0;
+            font-size: 16px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            padding: 5px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 3px;
+        }
+
+        .stat-label {
+            color: #aaa;
+        }
+
+        .stat-value {
+            color: #fff;
+            font-weight: bold;
+        }
+
+        .team-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+        }
+
+        .controls-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .button-group button {
+            flex: 1;
+            padding: 8px;
+            font-size: 14px;
+        }
+
+        /* City Popup */
+        #city-popup {
+            display: none;
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 320px;
+            background: rgba(26, 26, 46, 0.98);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            z-index: 200;
+        }
+
+        #city-popup h2 {
+            color: #f39c12;
+            margin-bottom: 15px;
+        }
+
+        #city-popup .popup-section {
+            margin: 15px 0;
+        }
+
+        #close-popup-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+
+        /* Top Bar */
+        #top-bar {
+            position: absolute;
+            top: 0;
+            left: 300px;
+            right: 0;
+            height: 50px;
+            background: rgba(26, 26, 46, 0.9);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            z-index: 100;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        #top-bar .info-item {
+            margin: 0 20px;
+            color: #aaa;
+        }
+
+        #top-bar .info-value {
+            color: #f39c12;
+            font-weight: bold;
+        }
+
+        /* Responsive */
+        @media (max-width: 800px) {
+            #left-panel {
+                width: 250px;
+            }
+            .launch-section {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Launch Screen -->
+    <div id="launch-screen">
+        <h1>⚔️ Air War Game ⚔️</h1>
+        <h2>WWII Air Strategy on a Globe</h2>
+
+        <div class="launch-section">
+            <h3>Game Settings</h3>
+            <div class="input-group">
+                <label>Random Seed:</label>
+                <input type="number" id="seed-input" placeholder="Leave blank for random">
+            </div>
+            <div class="input-group">
+                <label>Red Team Color:</label>
+                <input type="color" id="red-color" value="#cc0000">
+            </div>
+            <div class="input-group">
+                <label>Blue Team Color:</label>
+                <input type="color" id="blue-color" value="#0066cc">
+            </div>
+        </div>
+
+        <div class="launch-section">
+            <div id="country-allocation">
+                <h3>Loading countries...</h3>
+            </div>
+        </div>
+
+        <button id="start-game-btn">Start Game</button>
+    </div>
+
+    <!-- Game UI -->
+    <div id="game-ui">
+        <!-- Globe Container -->
+        <div id="globe-container"></div>
+
+        <!-- Top Bar -->
+        <div id="top-bar">
+            <div class="info-item">
+                Time: <span class="info-value" id="game-time">0:00</span>
+            </div>
+            <div class="info-item">
+                Seed: <span class="info-value" id="seed-display">-</span>
+            </div>
+        </div>
+
+        <!-- Left Panel -->
+        <div id="left-panel">
+            <h2>Air War Command</h2>
+
+            <!-- Red Team Stats -->
+            <div class="team-section" id="red-team-section">
+                <h3 style="color: #cc0000;">Red Team</h3>
+                <div class="stat-row">
+                    <span class="stat-label">Production:</span>
+                    <span class="stat-value" id="red-production">0M/min</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Accumulated:</span>
+                    <span class="stat-value" id="red-accumulated">0M</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Cities:</span>
+                    <span class="stat-value" id="red-cities">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Aircraft:</span>
+                    <span class="stat-value" id="red-aircraft">0F / 0B</span>
+                </div>
+            </div>
+
+            <!-- Blue Team Stats -->
+            <div class="team-section" id="blue-team-section">
+                <h3 style="color: #0066cc;">Blue Team (AI)</h3>
+                <div class="stat-row">
+                    <span class="stat-label">Production:</span>
+                    <span class="stat-value" id="blue-production">0M/min</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Accumulated:</span>
+                    <span class="stat-value" id="blue-accumulated">0M</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Cities:</span>
+                    <span class="stat-value" id="blue-cities">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Aircraft:</span>
+                    <span class="stat-value" id="blue-aircraft">0F / 0B</span>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls-section">
+                <h3>Game Controls</h3>
+                <div class="button-group">
+                    <button id="pause-btn">Pause</button>
+                </div>
+                <div class="button-group">
+                    <button id="speed-1x">1x</button>
+                    <button id="speed-2x">2x</button>
+                    <button id="speed-4x">4x</button>
+                </div>
+                <div class="button-group">
+                    <button id="save-btn">Save</button>
+                    <button id="load-btn">Load</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- City Popup -->
+        <div id="city-popup">
+            <button id="close-popup-btn">✕</button>
+            <h2 id="popup-city-name">City Name</h2>
+
+            <div class="popup-section">
+                <div class="stat-row">
+                    <span class="stat-label">Country:</span>
+                    <span class="stat-value" id="popup-city-country">-</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Owner:</span>
+                    <span class="stat-value" id="popup-city-owner">-</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">HP:</span>
+                    <span class="stat-value" id="popup-city-hp">-</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Production:</span>
+                    <span class="stat-value" id="popup-city-production">-</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Aircraft:</span>
+                    <span class="stat-value" id="popup-aircraft-count">-</span>
+                </div>
+            </div>
+
+            <div id="popup-airbase-controls" class="popup-section">
+                <h3>Airbase Controls</h3>
+                <button id="build-airbase-btn" style="width: 100%; margin: 5px 0;">Build Airbase (50M)</button>
+                <button id="set-delivery-btn" style="width: 100%; margin: 5px 0;">Set as Delivery Point</button>
+                <button id="set-bomber-target-btn" style="width: 100%; margin: 5px 0;">Set Bomber Target</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- D3 Libraries -->
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+    <script src="https://d3js.org/d3.geo.projection.v0.min.js"></script>
+    <script src="https://d3js.org/topojson.v1.min.js"></script>
+
+    <!-- Versor Library for Quaternion Rotation -->
+    <script>
+        (function() {
+            var acos = Math.acos, asin = Math.asin, atan2 = Math.atan2,
+                cos = Math.cos, max = Math.max, min = Math.min,
+                PI = Math.PI, sin = Math.sin, sqrt = Math.sqrt,
+                radians = PI / 180, degrees = 180 / PI;
+
+            function versor(e) {
+                var l = e[0] / 2 * radians, p = e[1] / 2 * radians, g = e[2] / 2 * radians,
+                    sl = sin(l), cl = cos(l), sp = sin(p), cp = cos(p),
+                    sg = sin(g), cg = cos(g);
+                return [
+                    cl * cp * cg + sl * sp * sg,
+                    sl * cp * cg - cl * sp * sg,
+                    cl * sp * cg + sl * cp * sg,
+                    cl * cp * sg - sl * sp * cg
+                ];
+            }
+
+            versor.rotation = function(q) {
+                return [
+                    atan2(2 * (q[0] * q[1] + q[2] * q[3]), 1 - 2 * (q[1] * q[1] + q[2] * q[2])) * degrees,
+                    asin(max(-1, min(1, 2 * (q[0] * q[2] - q[3] * q[1])))) * degrees,
+                    atan2(2 * (q[0] * q[3] + q[1] * q[2]), 1 - 2 * (q[2] * q[2] + q[3] * q[3])) * degrees
+                ];
+            };
+
+            versor.cartesian = function(e) {
+                var l = e[0] * radians, p = e[1] * radians, cp = cos(p);
+                return [cp * cos(l), cp * sin(l), sin(p)];
+            };
+
+            versor.delta = function(v0, v1) {
+                var w = cross(v0, v1), l = sqrt(dot(w, w));
+                if (!l) return [1, 0, 0, 0];
+                var t = acos(max(-1, min(1, dot(v0, v1)))) / 2, s = sin(t);
+                return [cos(t), w[2] / l * s, -w[1] / l * s, w[0] / l * s];
+            };
+
+            versor.multiply = function(a, b) {
+                return [
+                    a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+                    a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+                    a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+                    a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0]
+                ];
+            };
+
+            function cross(v0, v1) {
+                return [v0[1] * v1[2] - v0[2] * v1[1], v0[2] * v1[0] - v0[0] * v1[2], v0[0] * v1[1] - v0[1] * v1[0]];
+            }
+
+            function dot(v0, v1) {
+                return v0[0] * v1[0] + v0[1] * v1[1] + v0[2] * v1[2];
+            }
+
+            window.versor = versor;
+        })();
+    </script>
+
+    <!-- Game Modules -->
+    <script src="constants.js"></script>
+    <script src="rng.js"></script>
+    <script src="map-utils.js"></script>
+    <script src="data-loader.js"></script>
+    <script src="game-state.js"></script>
+    <script src="production.js"></script>
+    <script src="combat.js"></script>
+    <script src="ai-bot.js"></script>
+    <script src="renderer.js"></script>
+    <script src="main-loop.js"></script>
+    <script src="save-load.js"></script>
+    <script src="ui-controls.js"></script>
+
+    <!-- Main Application Script -->
+    <script>
+        // Global variables
+        let projection, path, svg;
+
+        // Initialize on page load
+        window.addEventListener('load', async function() {
+            try {
+                // Setup globe
+                setupGlobe();
+
+                // Load game data
+                const seed = Math.floor(Math.random() * 1000000);
+                const tempRng = new RNG(seed);
+                const gameData = await DataLoader.loadGameData(tempRng);
+
+                // Initialize game state
+                GameState.initialize(seed, gameData);
+
+                // Initialize UI
+                UIControls.initialize();
+
+                console.log('Game initialized successfully');
+                console.log(`Loaded ${GameState.cities.length} cities from ${GameState.countries.size} countries`);
+
+            } catch (error) {
+                console.error('Failed to initialize game:', error);
+                alert('Failed to load game data. Please check console for errors.');
+            }
+        });
+
+        function setupGlobe() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const radius = Math.min(width, height) * 0.4;
+
+            projection = d3.geo.orthographic()
+                .scale(radius)
+                .translate([width / 2, height / 2])
+                .clipAngle(90)
+                .rotate([0, -20, 0]);
+
+            path = d3.geo.path().projection(projection);
+
+            const graticule = d3.geo.graticule();
+
+            svg = d3.select("#globe-container").append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            // Globe sphere
+            svg.append("path")
+                .datum({type: "Sphere"})
+                .attr("class", "globe-sphere")
+                .attr("d", path);
+
+            // Graticule
+            svg.append("path")
+                .datum(graticule)
+                .attr("class", "graticule")
+                .attr("d", path);
+
+            // Land and boundaries groups
+            const landGroup = svg.append("g").attr("class", "land-group");
+            const boundaryGroup = svg.append("g").attr("class", "boundary-group");
+
+            // Load world topology
+            d3.json("https://cdn.jsdelivr.net/npm/world-atlas@1/world/110m.json", function(error, world) {
+                if (error) {
+                    console.error("Error loading world data:", error);
+                    return;
+                }
+
+                const countries = topojson.feature(world, world.objects.countries);
+                const borders = topojson.mesh(world, world.objects.countries, function(a, b) { return a !== b; });
+
+                landGroup.selectAll(".land")
+                    .data(countries.features)
+                    .enter().append("path")
+                    .attr("class", "land")
+                    .attr("d", path);
+
+                boundaryGroup.append("path")
+                    .datum(borders)
+                    .attr("class", "boundary")
+                    .attr("d", path);
+            });
+
+            // Foreground for interaction
+            const foreground = svg.append("path")
+                .datum({type: "Sphere"})
+                .attr("class", "foreground")
+                .attr("d", path);
+
+            // Drag behavior with versor
+            let v0, r0, q0;
+
+            const drag = d3.behavior.drag()
+                .on("dragstart", function() {
+                    const p = d3.mouse(this);
+                    const inverted = projection.invert(p);
+                    if (!inverted) return;
+                    v0 = versor.cartesian(inverted);
+                    r0 = projection.rotate();
+                    q0 = versor(r0);
+                })
+                .on("drag", function() {
+                    if (!v0) return;
+                    const p = d3.mouse(this);
+                    const inverted = projection.invert(p);
+                    if (!inverted) return;
+
+                    const v1 = versor.cartesian(inverted);
+                    const delta = versor.delta(v0, v1);
+                    let q1 = versor.multiply(q0, delta);
+                    let r1 = versor.rotation(q1);
+
+                    r1[2] = 0; // Lock gamma to 0
+                    q0 = versor(r1);
+                    v0 = v1;
+
+                    projection.rotate(r1);
+                    svg.selectAll("path").attr("d", path);
+
+                    // Update renderer if game is running
+                    if (Renderer.svg) {
+                        Renderer.render();
+                    }
+                });
+
+            foreground.call(drag);
+
+            // Initialize renderer
+            Renderer.initialize(svg, projection, path);
+        }
+
+        // Center globe on a city
+        function centerOnCity(city) {
+            const rotation = projection.rotate();
+            projection.rotate([-city.lon, -city.lat, 0]);
+            svg.selectAll("path").attr("d", path);
+            if (Renderer.svg) {
+                Renderer.render();
+            }
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            location.reload();
+        });
+    </script>
+</body>
+</html>
