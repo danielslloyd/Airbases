@@ -6,6 +6,7 @@ const GameState = {
   rng: null,
   countries: null,
   cities: [],
+  geoData: null,  // Raw GeoJSON for country rendering
 
   // Teams
   teams: {
@@ -19,13 +20,14 @@ const GameState = {
       productionPerMinute: 0,
       deliveryPointCity: null,
       isBot: false,
-      // Production allocation (percentages)
+      // Per-template production allocation and progress
+      // Key: templateId, Value: {allocation: 0-100, progress: 0-100}
+      templateProduction: {},
+      // Legacy fields for compatibility
       fighterAllocation: 50,
       bomberAllocation: 50,
-      // Progress toward next unit (0-100%)
       fighterProgress: 0,
       bomberProgress: 0,
-      // Currently selected templates
       selectedFighterTemplate: null,
       selectedBomberTemplate: null
     },
@@ -39,13 +41,13 @@ const GameState = {
       productionPerMinute: 0,
       deliveryPointCity: null,
       isBot: true,
-      // Production allocation (percentages)
+      // Per-template production allocation and progress
+      templateProduction: {},
+      // Legacy fields for compatibility
       fighterAllocation: 50,
       bomberAllocation: 50,
-      // Progress toward next unit (0-100%)
       fighterProgress: 0,
       bomberProgress: 0,
-      // Currently selected templates
       selectedFighterTemplate: null,
       selectedBomberTemplate: null
     }
@@ -82,6 +84,7 @@ const GameState = {
     this.rng = new RNG(seed);
     this.countries = data.countries;
     this.cities = data.cities;
+    this.geoData = data.geoData;
 
     // Reset state
     this.aircraft = [];
@@ -120,6 +123,13 @@ const GameState = {
     this.templates.push(defaultBomber);
     this.teams.Red.templates.push(defaultBomber);
     this.teams.Blue.templates.push(defaultBomber);
+
+    // Initialize templateProduction for both teams
+    for (const teamName in this.teams) {
+      const team = this.teams[teamName];
+      team.templateProduction[defaultFighter.id] = { allocation: 50, progress: 0 };
+      team.templateProduction[defaultBomber.id] = { allocation: 50, progress: 0 };
+    }
   },
 
   /**
@@ -221,6 +231,10 @@ const GameState = {
 
     this.templates.push(template);
     this.teams[teamName].templates.push(template);
+
+    // Initialize production allocation for new template
+    const team = this.teams[teamName];
+    team.templateProduction[template.id] = { allocation: 0, progress: 0 };
 
     return template;
   },

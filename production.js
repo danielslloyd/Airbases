@@ -66,51 +66,48 @@ const ProductionSystem = {
   processAllocationProduction(teamName, productionThisTick) {
     const team = GameState.teams[teamName];
 
-    // Get selected templates (or defaults)
-    const fighterTemplate = team.selectedFighterTemplate ||
-      team.templates.find(t => t.type === 'fighter');
-    const bomberTemplate = team.selectedBomberTemplate ||
-      team.templates.find(t => t.type === 'bomber');
+    // Calculate total allocation across all templates
+    let totalAlloc = 0;
+    for (const templateId in team.templateProduction) {
+      totalAlloc += team.templateProduction[templateId].allocation;
+    }
 
-    if (!fighterTemplate || !bomberTemplate) return;
-
-    // Calculate production allocation
-    const totalAlloc = team.fighterAllocation + team.bomberAllocation;
     if (totalAlloc === 0) return;
 
-    const fighterPct = team.fighterAllocation / totalAlloc;
-    const bomberPct = team.bomberAllocation / totalAlloc;
+    // Process each template
+    for (const templateId in team.templateProduction) {
+      const templateProd = team.templateProduction[templateId];
+      const template = GameState.getTemplate(templateId);
 
-    // Allocate production to each type
-    const fighterProduction = productionThisTick * fighterPct;
-    const bomberProduction = productionThisTick * bomberPct;
+      if (!template || templateProd.allocation === 0 || template.costM <= 0) continue;
 
-    // Update fighter progress
-    if (team.fighterAllocation > 0 && fighterTemplate.costM > 0) {
-      team.fighterProgress += (fighterProduction / fighterTemplate.costM) * 100;
+      // Calculate this template's share of production
+      const pct = templateProd.allocation / totalAlloc;
+      const production = productionThisTick * pct;
 
-      // Build fighter when progress reaches 100%
-      while (team.fighterProgress >= 100) {
-        team.fighterProgress -= 100;
+      // Update progress
+      templateProd.progress += (production / template.costM) * 100;
+
+      // Build units when progress reaches 100%
+      while (templateProd.progress >= 100) {
+        templateProd.progress -= 100;
         if (team.deliveryPointCity) {
-          GameState.createAircraft(fighterTemplate.id, team.deliveryPointCity.id, teamName);
-          console.log(`${teamName} built ${fighterTemplate.name}`);
+          GameState.createAircraft(templateId, team.deliveryPointCity.id, teamName);
+          console.log(`${teamName} built ${template.name}`);
         }
       }
     }
 
-    // Update bomber progress
-    if (team.bomberAllocation > 0 && bomberTemplate.costM > 0) {
-      team.bomberProgress += (bomberProduction / bomberTemplate.costM) * 100;
-
-      // Build bomber when progress reaches 100%
-      while (team.bomberProgress >= 100) {
-        team.bomberProgress -= 100;
-        if (team.deliveryPointCity) {
-          GameState.createAircraft(bomberTemplate.id, team.deliveryPointCity.id, teamName);
-          console.log(`${teamName} built ${bomberTemplate.name}`);
-        }
-      }
+    // Update legacy fields for backward compatibility
+    const fighterTemplate = team.templates.find(t => t.type === 'fighter');
+    const bomberTemplate = team.templates.find(t => t.type === 'bomber');
+    if (fighterTemplate && team.templateProduction[fighterTemplate.id]) {
+      team.fighterProgress = team.templateProduction[fighterTemplate.id].progress;
+      team.fighterAllocation = team.templateProduction[fighterTemplate.id].allocation;
+    }
+    if (bomberTemplate && team.templateProduction[bomberTemplate.id]) {
+      team.bomberProgress = team.templateProduction[bomberTemplate.id].progress;
+      team.bomberAllocation = team.templateProduction[bomberTemplate.id].allocation;
     }
   },
 

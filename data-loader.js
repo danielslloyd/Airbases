@@ -24,7 +24,7 @@ const DataLoader = {
     // Combine real cities and placeholders
     const allCities = [...cities, ...placeholders];
 
-    return { countries, cities: allCities };
+    return { countries, cities: allCities, geoData };
   },
 
   /**

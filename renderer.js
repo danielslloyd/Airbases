@@ -47,12 +47,102 @@ const Renderer = {
   },
 
   /**
-   * Render country coloring and hatching
+   * Render country coloring and hatching based on team control
    */
   renderCountries() {
-    // This would require re-rendering country polygons with team colors
-    // For simplicity, we'll skip this in the initial implementation
-    // and focus on city rendering
+    const self = this;
+    if (!this.countryLayer || !GameState.geoData) return;
+
+    // Get or create defs for patterns
+    let defs = this.svg.select('defs');
+    if (defs.empty()) {
+      defs = this.svg.insert('defs', ':first-child');
+    }
+
+    // Create hash patterns for contested countries
+    const patterns = ['Red', 'Blue'];
+    patterns.forEach(function(teamName) {
+      const patternId = 'hash-' + teamName;
+      if (defs.select('#' + patternId).empty()) {
+        const pattern = defs.append('pattern')
+          .attr('id', patternId)
+          .attr('width', 8)
+          .attr('height', 8)
+          .attr('patternUnits', 'userSpaceOnUse')
+          .attr('patternTransform', 'rotate(45)');
+
+        pattern.append('rect')
+          .attr('width', 8)
+          .attr('height', 8)
+          .attr('fill', CONSTANTS.LAND_COLOR);
+
+        pattern.append('line')
+          .attr('x1', 0)
+          .attr('y1', 0)
+          .attr('x2', 0)
+          .attr('y2', 8)
+          .attr('stroke', GameState.teams[teamName].color)
+          .attr('stroke-width', 3)
+          .attr('stroke-opacity', 0.5);
+      }
+    });
+
+    // Get features from geoData
+    const features = GameState.geoData.features || [];
+
+    // Bind country data
+    const countryPaths = this.countryLayer.selectAll('.country-fill')
+      .data(features, function(d) {
+        return d.properties.name || d.properties.NAME || d.id;
+      });
+
+    // Enter
+    countryPaths.enter()
+      .append('path')
+      .attr('class', 'country-fill');
+
+    // Update all country paths
+    this.countryLayer.selectAll('.country-fill').each(function(feature) {
+      const pathEl = d3.select(this);
+      const countryName = feature.properties.name || feature.properties.NAME;
+
+      // Get country control status
+      const controller = GameState.getCountryController(countryName);
+      const contested = GameState.isCountryContested(countryName);
+
+      // Determine fill color/pattern
+      let fill = CONSTANTS.LAND_COLOR; // Default neutral
+      let opacity = 1;
+
+      if (controller) {
+        // Fully controlled by a team
+        fill = GameState.teams[controller].color;
+        opacity = 0.3;
+      } else if (contested) {
+        // Contested - use hash pattern
+        // Find which team has more cities
+        const country = GameState.countries.get(countryName);
+        if (country) {
+          let redCount = 0, blueCount = 0;
+          country.cities.forEach(function(c) {
+            if (c.owner === 'Red') redCount++;
+            else if (c.owner === 'Blue') blueCount++;
+          });
+          const dominantTeam = redCount > blueCount ? 'Red' : 'Blue';
+          fill = 'url(#hash-' + dominantTeam + ')';
+          opacity = 1;
+        }
+      }
+
+      pathEl.attr('d', self.path(feature))
+        .style('fill', fill)
+        .style('fill-opacity', opacity)
+        .style('stroke', 'none')
+        .style('pointer-events', 'none');
+    });
+
+    // Exit
+    countryPaths.exit().remove();
   },
 
   /**
@@ -405,19 +495,23 @@ const Renderer = {
     const airbasesWithOrders = [];
     GameState.cities.forEach(function(city) {
       if (city.hasAirbase && city.airbase && city.airbase.complete && city.airbase.orders) {
-        // Get max bomber range at this airbase
+        // Get max bomber range at this airbase (or default range if no bombers)
         const bombers = GameState.getBombersAtCity(city.id);
+        let maxRange;
         if (bombers.length > 0) {
-          const maxRange = Math.max.apply(null, bombers.map(function(b) {
+          maxRange = Math.max.apply(null, bombers.map(function(b) {
             const template = GameState.getTemplate(b.templateId);
             return template ? template.rangePoints * CONSTANTS.RANGE_KM_PER_POINT : 0;
           }));
-          airbasesWithOrders.push({
-            city: city,
-            range: maxRange,
-            isSelected: self.selectedCity && self.selectedCity.id === city.id
-          });
+        } else {
+          // No bombers - use default bomber range to show potential coverage
+          maxRange = DEFAULT_TEMPLATES.bomber.rangePoints * CONSTANTS.RANGE_KM_PER_POINT;
         }
+        airbasesWithOrders.push({
+          city: city,
+          range: maxRange,
+          isSelected: self.selectedCity && self.selectedCity.id === city.id
+        });
       }
     });
 
