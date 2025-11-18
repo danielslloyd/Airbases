@@ -18,7 +18,16 @@ const GameState = {
       productionAccumulated: 0,
       productionPerMinute: 0,
       deliveryPointCity: null,
-      isBot: false
+      isBot: false,
+      // Production allocation (percentages)
+      fighterAllocation: 50,
+      bomberAllocation: 50,
+      // Progress toward next unit (0-100%)
+      fighterProgress: 0,
+      bomberProgress: 0,
+      // Currently selected templates
+      selectedFighterTemplate: null,
+      selectedBomberTemplate: null
     },
     Blue: {
       name: 'Blue',
@@ -29,7 +38,16 @@ const GameState = {
       productionAccumulated: 0,
       productionPerMinute: 0,
       deliveryPointCity: null,
-      isBot: true
+      isBot: true,
+      // Production allocation (percentages)
+      fighterAllocation: 50,
+      bomberAllocation: 50,
+      // Progress toward next unit (0-100%)
+      fighterProgress: 0,
+      bomberProgress: 0,
+      // Currently selected templates
+      selectedFighterTemplate: null,
+      selectedBomberTemplate: null
     }
   },
 
