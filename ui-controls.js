@@ -104,7 +104,7 @@ const UIControls = {
 
     const updateTeamName = (input, nameSpan, defaultColor) => {
       if (!this.validateColor(input.value)) {
-        alert('Color too dark or too light. Please choose a different color.');
+        console.log('Color too dark or too light. Please choose a different color.');
         input.value = defaultColor;
       }
       const name = this.getColorName(input.value);
@@ -383,12 +383,12 @@ const UIControls = {
     const template = team.templates.find(t => t.type === type);
 
     if (!template) {
-      alert(`No ${type} template available`);
+      console.log(`No ${type} template available`);
       return;
     }
 
     if (team.productionAccumulated < template.costM) {
-      alert(`Not enough production (need ${template.costM}M, have ${team.productionAccumulated.toFixed(2)}M)`);
+      console.log(`Not enough production (need ${template.costM}M, have ${team.productionAccumulated.toFixed(2)}M)`);
       return;
     }
 
@@ -416,7 +416,7 @@ const UIControls = {
 
     const minCost = type === 'bomber' ? CONSTANTS.BOMBER_BASE_COST_M : CONSTANTS.FIGHTER_BASE_COST_M;
     if (cost < minCost) {
-      alert(`Minimum cost for ${type} is ${minCost}M`);
+      console.log(`Minimum cost for ${type} is ${minCost}M`);
       return;
     }
 
@@ -424,17 +424,12 @@ const UIControls = {
     const usedPoints = range + offense + defense;
 
     if (usedPoints > availablePoints) {
-      alert(`Too many points used (${usedPoints} > ${availablePoints})`);
+      console.log(`Too many points used (${usedPoints} > ${availablePoints})`);
       return;
     }
 
-    const designCost = ProductionSystem.getDesignCost(this.playerTeam);
+    // Design without cost check - just start it
     const team = GameState.teams[this.playerTeam];
-
-    if (team.productionAccumulated < designCost) {
-      alert(`Not enough production to design (need ${designCost.toFixed(2)}M)`);
-      return;
-    }
 
     const specs = {
       type: type,
@@ -445,11 +440,11 @@ const UIControls = {
       name: name
     };
 
-    if (ProductionSystem.startDesign(this.playerTeam, specs)) {
-      alert(`Created design: ${name}`);
-      // Clear the name input for next design
-      if (nameInput) nameInput.value = '';
-    }
+    // Start design (production will be diverted to it automatically)
+    GameState.createTemplate(this.playerTeam, specs);
+    console.log(`Created design: ${name}`);
+    // Clear the name input for next design
+    if (nameInput) nameInput.value = '';
   },
 
   /**
@@ -461,7 +456,6 @@ const UIControls = {
     // Update player team stats
     const playerTeamData = GameState.teams[this.playerTeam];
     this.updateElement('player-production', `${playerTeamData.productionPerMinute.toFixed(2)}M/min`);
-    this.updateElement('player-accumulated', `${playerTeamData.productionAccumulated.toFixed(2)}M`);
     this.updateElement('player-cities', playerTeamData.cities.length);
 
     const playerFighters = playerTeamData.aircraft.filter(a => a.type === 'fighter' && a.hp > 0).length;
@@ -471,7 +465,6 @@ const UIControls = {
     // Update AI team stats
     const aiTeamData = GameState.teams[this.aiTeam];
     this.updateElement('ai-production', `${aiTeamData.productionPerMinute.toFixed(2)}M/min`);
-    this.updateElement('ai-accumulated', `${aiTeamData.productionAccumulated.toFixed(2)}M`);
     this.updateElement('ai-cities', aiTeamData.cities.length);
 
     const aiFighters = aiTeamData.aircraft.filter(a => a.type === 'fighter' && a.hp > 0).length;
@@ -509,6 +502,16 @@ const UIControls = {
     }
     if (bomberTemplate) {
       this.updateElement('bomber-template-name', bomberTemplate.name);
+    }
+
+    // Sync sliders with GameState values
+    const fighterSlider = document.getElementById('fighter-allocation');
+    const bomberSlider = document.getElementById('bomber-allocation');
+    if (fighterSlider && fighterSlider.value != team.fighterAllocation) {
+      fighterSlider.value = team.fighterAllocation;
+    }
+    if (bomberSlider && bomberSlider.value != team.bomberAllocation) {
+      bomberSlider.value = team.bomberAllocation;
     }
 
     // Update allocation percentages
@@ -569,7 +572,7 @@ const UIControls = {
         buildAirbaseBtn.style.display = 'block';
         buildAirbaseBtn.onclick = () => {
           if (ProductionSystem.buildAirbase(city.id, this.playerTeam)) {
-            alert(`Started building airbase at ${city.name}`);
+            console.log(`Started building airbase at ${city.name}`);
             this.showCityPopup(city);
           }
         };
@@ -580,7 +583,7 @@ const UIControls = {
         setDeliveryBtn.style.display = 'block';
         setDeliveryBtn.onclick = () => {
           if (ProductionSystem.setDeliveryPoint(city.id, this.playerTeam)) {
-            alert(`Set ${city.name} as delivery point`);
+            console.log(`Set ${city.name} as delivery point`);
             this.showCityPopup(city);
           }
         };
@@ -617,7 +620,7 @@ const UIControls = {
   showTargetSelector(airbaseCity) {
     const bombers = GameState.getBombersAtCity(airbaseCity.id);
     if (bombers.length === 0) {
-      alert('No bombers at this airbase');
+      console.log('No bombers at this airbase');
       return;
     }
 
@@ -636,7 +639,7 @@ const UIControls = {
     });
 
     if (targets.length === 0) {
-      alert('No targets in range');
+      console.log('No targets in range');
       return;
     }
 
@@ -735,7 +738,7 @@ const UIControls = {
         ProductionSystem.setBomberOrders(airbaseCity.id, target.id);
         self.clearTargetSelection();
         self.showCityPopup(airbaseCity);
-        alert('Set bomber target to ' + target.name);
+        console.log('Set bomber target to ' + target.name);
       });
     });
 
