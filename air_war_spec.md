@@ -1,3 +1,0 @@
-# Air War Game — Full Technical Specification
-
-...(omitted for brevity in this code cell, full content will be inserted)...
