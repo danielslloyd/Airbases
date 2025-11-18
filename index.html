@@ -334,12 +334,21 @@
                 <input type="number" id="seed-input" placeholder="Leave blank for random">
             </div>
             <div class="input-group">
-                <label>Red Team Color:</label>
-                <input type="color" id="red-color" value="#cc0000">
+                <label>Team 1 Color:</label>
+                <input type="color" id="team1-color" value="#cc0000">
+                <span id="team1-name" style="margin-left: 10px; font-weight: bold;">Red</span>
             </div>
             <div class="input-group">
-                <label>Blue Team Color:</label>
-                <input type="color" id="blue-color" value="#0066cc">
+                <label>Team 2 Color:</label>
+                <input type="color" id="team2-color" value="#0066cc">
+                <span id="team2-name" style="margin-left: 10px; font-weight: bold;">Blue</span>
+            </div>
+            <div class="input-group">
+                <label>You play as:</label>
+                <select id="player-team-select">
+                    <option value="team1">Team 1</option>
+                    <option value="team2">Team 2</option>
+                </select>
             </div>
         </div>
 
@@ -371,49 +380,95 @@
         <div id="left-panel">
             <h2>Air War Command</h2>
 
-            <!-- Red Team Stats -->
-            <div class="team-section" id="red-team-section">
-                <h3 style="color: #cc0000;">Red Team</h3>
+            <!-- Player Team Stats -->
+            <div class="team-section" id="player-team-section">
+                <h3 id="player-team-header">Your Team</h3>
                 <div class="stat-row">
                     <span class="stat-label">Production:</span>
-                    <span class="stat-value" id="red-production">0M/min</span>
+                    <span class="stat-value" id="player-production">0M/min</span>
                 </div>
                 <div class="stat-row">
                     <span class="stat-label">Accumulated:</span>
-                    <span class="stat-value" id="red-accumulated">0M</span>
+                    <span class="stat-value" id="player-accumulated">0M</span>
                 </div>
                 <div class="stat-row">
                     <span class="stat-label">Cities:</span>
-                    <span class="stat-value" id="red-cities">0</span>
+                    <span class="stat-value" id="player-cities">0</span>
                 </div>
                 <div class="stat-row">
                     <span class="stat-label">Aircraft:</span>
-                    <span class="stat-value" id="red-aircraft">0F / 0B</span>
+                    <span class="stat-value" id="player-aircraft">0F / 0B</span>
+                </div>
+
+                <!-- Production Controls -->
+                <h4 style="margin: 10px 0 5px 0; color: #aaa;">Build Units</h4>
+                <div class="button-group">
+                    <button id="build-fighter-btn" style="font-size: 12px;">Fighter (1M)</button>
+                    <button id="build-bomber-btn" style="font-size: 12px;">Bomber (3M)</button>
+                </div>
+                <div id="production-queue" style="font-size: 11px; color: #888; margin-top: 5px;">
+                    Queue: idle
                 </div>
             </div>
 
-            <!-- Blue Team Stats -->
-            <div class="team-section" id="blue-team-section">
-                <h3 style="color: #0066cc;">Blue Team (AI)</h3>
+            <!-- AI Team Stats -->
+            <div class="team-section" id="ai-team-section">
+                <h3 id="ai-team-header">Enemy (AI)</h3>
                 <div class="stat-row">
                     <span class="stat-label">Production:</span>
-                    <span class="stat-value" id="blue-production">0M/min</span>
+                    <span class="stat-value" id="ai-production">0M/min</span>
                 </div>
                 <div class="stat-row">
                     <span class="stat-label">Accumulated:</span>
-                    <span class="stat-value" id="blue-accumulated">0M</span>
+                    <span class="stat-value" id="ai-accumulated">0M</span>
                 </div>
                 <div class="stat-row">
                     <span class="stat-label">Cities:</span>
-                    <span class="stat-value" id="blue-cities">0</span>
+                    <span class="stat-value" id="ai-cities">0</span>
                 </div>
                 <div class="stat-row">
                     <span class="stat-label">Aircraft:</span>
-                    <span class="stat-value" id="blue-aircraft">0F / 0B</span>
+                    <span class="stat-value" id="ai-aircraft">0F / 0B</span>
                 </div>
             </div>
 
-            <!-- Controls -->
+            <!-- Aircraft Design -->
+            <div class="controls-section">
+                <h3>Design Aircraft</h3>
+                <div class="input-group" style="margin: 5px 0;">
+                    <label style="font-size: 12px;">Type:</label>
+                    <select id="design-type" style="padding: 4px;">
+                        <option value="fighter">Fighter</option>
+                        <option value="bomber">Bomber</option>
+                    </select>
+                </div>
+                <div class="input-group" style="margin: 5px 0;">
+                    <label style="font-size: 12px;">Cost (M):</label>
+                    <input type="number" id="design-cost" value="3" min="1" max="100" style="width: 60px; padding: 4px;">
+                </div>
+                <div id="design-points" style="font-size: 11px; color: #f39c12; margin: 5px 0;">
+                    Points available: 8
+                </div>
+                <div class="input-group" style="margin: 5px 0;">
+                    <label style="font-size: 12px;">Range:</label>
+                    <input type="number" id="design-range" value="30" min="10" max="100" style="width: 50px; padding: 4px;">
+                </div>
+                <div class="input-group" style="margin: 5px 0;">
+                    <label style="font-size: 12px;">Offense:</label>
+                    <input type="number" id="design-offense" value="30" min="1" max="100" style="width: 50px; padding: 4px;">
+                </div>
+                <div class="input-group" style="margin: 5px 0;">
+                    <label style="font-size: 12px;">Defense:</label>
+                    <input type="number" id="design-defense" value="20" min="1" max="100" style="width: 50px; padding: 4px;">
+                </div>
+                <div class="input-group" style="margin: 5px 0;">
+                    <label style="font-size: 12px;">Name:</label>
+                    <input type="text" id="design-name" value="Custom" style="width: 80px; padding: 4px;">
+                </div>
+                <button id="create-design-btn" style="width: 100%; margin-top: 5px; font-size: 12px;">Create Design</button>
+            </div>
+
+            <!-- Game Controls -->
             <div class="controls-section">
                 <h3>Game Controls</h3>
                 <div class="button-group">

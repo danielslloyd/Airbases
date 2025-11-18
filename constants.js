@@ -48,11 +48,14 @@ const CONSTANTS = {
   MAX_COLOR_LUMINANCE: 0.92,             // Maximum luminance for team colors (prevent too light)
 
   // Rendering
-  CITY_DOT_RADIUS: 3,                    // Radius for city dots
-  CITY_DOT_RADIUS_PLACEHOLDER: 2,        // Radius for placeholder cities
-  AIRBASE_HALO_RADIUS: 8,                // Halo around airbases
-  DELIVERY_SQUARE_SIZE: 6,               // Size of delivery point square
-  CAPTURE_RING_WIDTH: 2,                 // Width of capture progress ring
+  CITY_DOT_RADIUS: 1.5,                  // Radius for city dots
+  CITY_DOT_RADIUS_PLACEHOLDER: 1,        // Radius for placeholder cities
+  AIRBASE_HALO_RADIUS: 5,                // Halo around airbases
+  DELIVERY_SQUARE_SIZE: 4,               // Size of delivery point square
+  CAPTURE_RING_WIDTH: 1.5,               // Width of capture progress ring
+
+  // City Filtering
+  MIN_CITY_SPACING_KM: 200,              // Minimum distance between cities
 
   // Placeholder City Generation
   PLACEHOLDER_CITIES_PER_COUNTRY: 3,     // Number of placeholder cities to create per country
