@@ -82,15 +82,28 @@ const MainLoop = {
 
       const cityId = city.id;
 
+      // Check if target is still valid (not friendly)
+      const targetCity = GameState.getCity(city.airbase.orders.targetCityId);
+      if (!targetCity || targetCity.owner === city.owner) {
+        // Clear invalid target
+        city.airbase.orders = null;
+        console.log(`Cleared targeting for ${city.name} - target is now friendly or invalid`);
+        continue;
+      }
+
       // Check rest period (set after raid returns)
       const restUntil = this.lastDispatchTimes.get(cityId) || 0;
       if (GameState.elapsedSeconds < restUntil) continue;
 
-      // Check if we have idle bombers
-      const idleBombers = GameState.getBombersAtCity(cityId).filter(b => b.status === 'idle');
-      if (idleBombers.length === 0) continue;
+      // Get all assigned bombers (synchronized takeoff - wait for all to return)
+      const assignedBombers = GameState.getBombersAssignedToCity(cityId);
+      if (assignedBombers.length === 0) continue;
 
-      // Dispatch raid immediately
+      // Check if ALL assigned bombers are idle (synchronized takeoff)
+      const allIdle = assignedBombers.every(b => b.status === 'idle');
+      if (!allIdle) continue;
+
+      // Dispatch raid with all bombers
       this.dispatchRaid(city);
     }
   },
