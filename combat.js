@@ -126,6 +126,12 @@ const CombatSystem = {
    * @param {string} attackerTeam - Attacking team name
    */
   applyCityDamage(city, damage, attackerTeam) {
+    // Check if attacking a neutral city - country joins other team
+    if (!city.owner) {
+      this.neutralCountryJoinsEnemy(city, attackerTeam);
+      return; // Don't apply damage - country switched sides
+    }
+
     // Apply damage (negative HP change)
     city.hp -= damage;
 
@@ -140,6 +146,31 @@ const CombatSystem = {
     if (GameState.debugLogCombat) {
       console.log(`${city.name} took ${damage} damage, HP now ${city.hp.toFixed(1)}`);
     }
+  },
+
+  /**
+   * When a neutral country is bombed, all its cities join the enemy of the attacker
+   * @param {object} city - Neutral city that was attacked
+   * @param {string} attackerTeam - Team that attacked
+   */
+  neutralCountryJoinsEnemy(city, attackerTeam) {
+    const countryName = city.country;
+    const enemyTeam = attackerTeam === 'Red' ? 'Blue' : 'Red';
+
+    // Get all cities in this country
+    const country = GameState.countries.get(countryName);
+    if (!country) return;
+
+    // Assign all neutral cities in this country to the enemy team
+    for (const countryCity of country.cities) {
+      if (!countryCity.owner) {
+        countryCity.owner = enemyTeam;
+        GameState.teams[enemyTeam].cities.push(countryCity);
+        countryCity.hp = 100; // Full HP
+      }
+    }
+
+    console.log(`${attackerTeam} attacked neutral ${countryName} - country joins ${enemyTeam}!`);
   },
 
   /**

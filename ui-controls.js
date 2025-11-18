@@ -314,47 +314,90 @@ const UIControls = {
   },
 
   /**
-   * Setup production allocation sliders
+   * Setup production allocation sliders (called once, dynamically rebuilt)
    */
   setupProductionSliders() {
-    const fighterSlider = document.getElementById('fighter-allocation');
-    const bomberSlider = document.getElementById('bomber-allocation');
-
-    if (fighterSlider) {
-      fighterSlider.addEventListener('input', (e) => {
-        const team = GameState.teams[this.playerTeam];
-        if (team) {
-          team.fighterAllocation = parseInt(e.target.value) || 0;
-          this.updateAllocationDisplay();
-        }
-      });
-    }
-
-    if (bomberSlider) {
-      bomberSlider.addEventListener('input', (e) => {
-        const team = GameState.teams[this.playerTeam];
-        if (team) {
-          team.bomberAllocation = parseInt(e.target.value) || 0;
-          this.updateAllocationDisplay();
-        }
-      });
-    }
+    // Initial build of allocation UI will happen in updateProductionUI
   },
 
   /**
-   * Update allocation percentage display
+   * Rebuild production allocation UI with current templates
    */
-  updateAllocationDisplay() {
+  rebuildAllocationUI() {
+    const container = document.getElementById('production-allocation-container');
+    if (!container) return;
+
     const team = GameState.teams[this.playerTeam];
     if (!team) return;
 
-    const total = team.fighterAllocation + team.bomberAllocation;
-    const fighterPct = total > 0 ? Math.round((team.fighterAllocation / total) * 100) : 0;
-    const bomberPct = total > 0 ? Math.round((team.bomberAllocation / total) * 100) : 0;
+    // Clear existing UI
+    container.innerHTML = '';
 
-    this.updateElement('fighter-allocation-pct', fighterPct + '%');
-    this.updateElement('bomber-allocation-pct', bomberPct + '%');
+    // Create UI for each template
+    team.templates.forEach(template => {
+      // Ensure templateProduction exists for this template
+      if (!team.templateProduction[template.id]) {
+        team.templateProduction[template.id] = { allocation: 0, progress: 0 };
+      }
+
+      const templateProd = team.templateProduction[template.id];
+
+      // Create allocation item
+      const item = document.createElement('div');
+      item.style.cssText = 'margin: 5px 0;';
+      item.className = 'allocation-item';
+      item.dataset.templateId = template.id;
+
+      // Header row with name, type, cost, and percentage
+      const header = document.createElement('div');
+      header.style.cssText = 'display: flex; justify-content: space-between; font-size: 10px;';
+
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = `${template.name} (${template.type === 'fighter' ? 'F' : 'B'} $${template.costM}M)`;
+      nameSpan.style.color = template.type === 'fighter' ? '#5af' : '#fa5';
+
+      const pctSpan = document.createElement('span');
+      pctSpan.className = 'allocation-pct';
+      pctSpan.textContent = '0%';
+
+      header.appendChild(nameSpan);
+      header.appendChild(pctSpan);
+
+      // Slider
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.min = '0';
+      slider.max = '100';
+      slider.value = templateProd.allocation;
+      slider.style.cssText = 'width: 100%;';
+      slider.className = 'allocation-slider';
+
+      slider.addEventListener('input', (e) => {
+        templateProd.allocation = parseInt(e.target.value) || 0;
+      });
+
+      // Progress bar
+      const progressBg = document.createElement('div');
+      progressBg.style.cssText = 'background: #333; border-radius: 3px; height: 6px; margin-top: 3px;';
+
+      const progressFill = document.createElement('div');
+      progressFill.className = 'allocation-progress';
+      progressFill.style.cssText = 'background: #f39c12; height: 100%; border-radius: 3px; width: 0%;';
+
+      progressBg.appendChild(progressFill);
+
+      item.appendChild(header);
+      item.appendChild(slider);
+      item.appendChild(progressBg);
+
+      container.appendChild(item);
+    });
   },
+
+  /**
+   * Track number of templates to detect changes
+   */
+  lastTemplateCount: 0,
 
   /**
    * Setup aircraft design UI
@@ -490,43 +533,41 @@ const UIControls = {
     const team = GameState.teams[this.playerTeam];
     if (!team) return;
 
-    // Get selected templates
-    const fighterTemplate = team.selectedFighterTemplate ||
-      team.templates.find(t => t.type === 'fighter');
-    const bomberTemplate = team.selectedBomberTemplate ||
-      team.templates.find(t => t.type === 'bomber');
-
-    // Update template names
-    if (fighterTemplate) {
-      this.updateElement('fighter-template-name', fighterTemplate.name);
-    }
-    if (bomberTemplate) {
-      this.updateElement('bomber-template-name', bomberTemplate.name);
+    // Check if templates changed - rebuild UI if needed
+    if (team.templates.length !== this.lastTemplateCount) {
+      this.lastTemplateCount = team.templates.length;
+      this.rebuildAllocationUI();
     }
 
-    // Sync sliders with GameState values
-    const fighterSlider = document.getElementById('fighter-allocation');
-    const bomberSlider = document.getElementById('bomber-allocation');
-    if (fighterSlider && fighterSlider.value != team.fighterAllocation) {
-      fighterSlider.value = team.fighterAllocation;
-    }
-    if (bomberSlider && bomberSlider.value != team.bomberAllocation) {
-      bomberSlider.value = team.bomberAllocation;
+    // Calculate total allocation
+    let totalAlloc = 0;
+    for (const templateId in team.templateProduction) {
+      totalAlloc += team.templateProduction[templateId].allocation;
     }
 
-    // Update allocation percentages
-    this.updateAllocationDisplay();
+    // Update each allocation item
+    const container = document.getElementById('production-allocation-container');
+    if (!container) return;
 
-    // Update progress bars
-    const fighterProgress = document.getElementById('fighter-progress');
-    if (fighterProgress) {
-      fighterProgress.style.width = Math.min(team.fighterProgress, 100) + '%';
-    }
+    const items = container.querySelectorAll('.allocation-item');
+    items.forEach(item => {
+      const templateId = item.dataset.templateId;
+      const templateProd = team.templateProduction[templateId];
+      if (!templateProd) return;
 
-    const bomberProgress = document.getElementById('bomber-progress');
-    if (bomberProgress) {
-      bomberProgress.style.width = Math.min(team.bomberProgress, 100) + '%';
-    }
+      // Update percentage display
+      const pctSpan = item.querySelector('.allocation-pct');
+      if (pctSpan) {
+        const pct = totalAlloc > 0 ? Math.round((templateProd.allocation / totalAlloc) * 100) : 0;
+        pctSpan.textContent = pct + '%';
+      }
+
+      // Update progress bar
+      const progressFill = item.querySelector('.allocation-progress');
+      if (progressFill) {
+        progressFill.style.width = Math.min(templateProd.progress, 100) + '%';
+      }
+    });
   },
 
   /**
