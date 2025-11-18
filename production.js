@@ -52,8 +52,76 @@ const ProductionSystem = {
 
       // Accumulate production
       const productionThisTick = team.productionPerMinute * deltaMinutes;
-      team.productionAccumulated += productionThisTick;
+
+      // Distribute production based on allocation
+      this.processAllocationProduction(teamName, productionThisTick);
     }
+  },
+
+  /**
+   * Process production based on allocation sliders
+   * @param {string} teamName - Team name
+   * @param {number} productionThisTick - Production this tick
+   */
+  processAllocationProduction(teamName, productionThisTick) {
+    const team = GameState.teams[teamName];
+
+    // Get selected templates (or defaults)
+    const fighterTemplate = team.selectedFighterTemplate ||
+      team.templates.find(t => t.type === 'fighter');
+    const bomberTemplate = team.selectedBomberTemplate ||
+      team.templates.find(t => t.type === 'bomber');
+
+    if (!fighterTemplate || !bomberTemplate) return;
+
+    // Calculate production allocation
+    const totalAlloc = team.fighterAllocation + team.bomberAllocation;
+    if (totalAlloc === 0) return;
+
+    const fighterPct = team.fighterAllocation / totalAlloc;
+    const bomberPct = team.bomberAllocation / totalAlloc;
+
+    // Allocate production to each type
+    const fighterProduction = productionThisTick * fighterPct;
+    const bomberProduction = productionThisTick * bomberPct;
+
+    // Update fighter progress
+    if (team.fighterAllocation > 0 && fighterTemplate.costM > 0) {
+      team.fighterProgress += (fighterProduction / fighterTemplate.costM) * 100;
+
+      // Build fighter when progress reaches 100%
+      while (team.fighterProgress >= 100) {
+        team.fighterProgress -= 100;
+        if (team.deliveryPointCity) {
+          GameState.createAircraft(fighterTemplate.id, team.deliveryPointCity.id, teamName);
+        }
+      }
+    }
+
+    // Update bomber progress
+    if (team.bomberAllocation > 0 && bomberTemplate.costM > 0) {
+      team.bomberProgress += (bomberProduction / bomberTemplate.costM) * 100;
+
+      // Build bomber when progress reaches 100%
+      while (team.bomberProgress >= 100) {
+        team.bomberProgress -= 100;
+        if (team.deliveryPointCity) {
+          GameState.createAircraft(bomberTemplate.id, team.deliveryPointCity.id, teamName);
+        }
+      }
+    }
+
+    // Keep accumulated for display purposes
+    team.productionAccumulated += productionThisTick;
+  },
+
+  /**
+   * Generate a random animal name for an aircraft
+   * @param {RNG} rng - Random number generator
+   * @returns {string} Random animal name
+   */
+  generateAnimalName(rng) {
+    return rng.choice(ANIMAL_NAMES);
   },
 
   /**

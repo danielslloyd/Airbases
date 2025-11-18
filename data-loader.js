@@ -112,7 +112,7 @@ const DataLoader = {
 
       const city = {
         id: `city-${idCounter++}`,
-        name: row.city || 'Unnamed',
+        name: row.name || row.city || 'Unnamed',
         lat: lat,
         lon: lon,
         population: population,

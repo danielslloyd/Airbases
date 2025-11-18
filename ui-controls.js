@@ -303,15 +303,57 @@ const UIControls = {
     // Close city popup
     document.getElementById('close-popup-btn')?.addEventListener('click', () => this.hideCityPopup());
 
-    // Production buttons
-    document.getElementById('build-fighter-btn')?.addEventListener('click', () => this.buildUnit('fighter'));
-    document.getElementById('build-bomber-btn')?.addEventListener('click', () => this.buildUnit('bomber'));
+    // Production allocation sliders
+    this.setupProductionSliders();
 
     // Design UI
     this.setupDesignUI();
 
     // Update UI periodically
     setInterval(() => this.updateGameUI(), 500);
+  },
+
+  /**
+   * Setup production allocation sliders
+   */
+  setupProductionSliders() {
+    const fighterSlider = document.getElementById('fighter-allocation');
+    const bomberSlider = document.getElementById('bomber-allocation');
+
+    if (fighterSlider) {
+      fighterSlider.addEventListener('input', (e) => {
+        const team = GameState.teams[this.playerTeam];
+        if (team) {
+          team.fighterAllocation = parseInt(e.target.value) || 0;
+          this.updateAllocationDisplay();
+        }
+      });
+    }
+
+    if (bomberSlider) {
+      bomberSlider.addEventListener('input', (e) => {
+        const team = GameState.teams[this.playerTeam];
+        if (team) {
+          team.bomberAllocation = parseInt(e.target.value) || 0;
+          this.updateAllocationDisplay();
+        }
+      });
+    }
+  },
+
+  /**
+   * Update allocation percentage display
+   */
+  updateAllocationDisplay() {
+    const team = GameState.teams[this.playerTeam];
+    if (!team) return;
+
+    const total = team.fighterAllocation + team.bomberAllocation;
+    const fighterPct = total > 0 ? Math.round((team.fighterAllocation / total) * 100) : 0;
+    const bomberPct = total > 0 ? Math.round((team.bomberAllocation / total) * 100) : 0;
+
+    this.updateElement('fighter-allocation-pct', fighterPct + '%');
+    this.updateElement('bomber-allocation-pct', bomberPct + '%');
   },
 
   /**
@@ -364,7 +406,13 @@ const UIControls = {
     const range = parseInt(document.getElementById('design-range').value) || 30;
     const offense = parseInt(document.getElementById('design-offense').value) || 30;
     const defense = parseInt(document.getElementById('design-defense').value) || 20;
-    const name = document.getElementById('design-name').value || 'Custom';
+
+    // Auto-generate random animal name if not provided
+    const nameInput = document.getElementById('design-name');
+    let name = nameInput ? nameInput.value.trim() : '';
+    if (!name) {
+      name = ProductionSystem.generateAnimalName(GameState.rng);
+    }
 
     const minCost = type === 'bomber' ? CONSTANTS.BOMBER_BASE_COST_M : CONSTANTS.FIGHTER_BASE_COST_M;
     if (cost < minCost) {
@@ -399,6 +447,8 @@ const UIControls = {
 
     if (ProductionSystem.startDesign(this.playerTeam, specs)) {
       alert(`Created design: ${name}`);
+      // Clear the name input for next design
+      if (nameInput) nameInput.value = '';
     }
   },
 
@@ -435,6 +485,45 @@ const UIControls = {
 
     // Update seed display
     this.updateElement('seed-display', GameState.seed);
+
+    // Update production allocation UI
+    this.updateProductionUI();
+  },
+
+  /**
+   * Update production allocation UI (progress bars, template names, percentages)
+   */
+  updateProductionUI() {
+    const team = GameState.teams[this.playerTeam];
+    if (!team) return;
+
+    // Get selected templates
+    const fighterTemplate = team.selectedFighterTemplate ||
+      team.templates.find(t => t.type === 'fighter');
+    const bomberTemplate = team.selectedBomberTemplate ||
+      team.templates.find(t => t.type === 'bomber');
+
+    // Update template names
+    if (fighterTemplate) {
+      this.updateElement('fighter-template-name', fighterTemplate.name);
+    }
+    if (bomberTemplate) {
+      this.updateElement('bomber-template-name', bomberTemplate.name);
+    }
+
+    // Update allocation percentages
+    this.updateAllocationDisplay();
+
+    // Update progress bars
+    const fighterProgress = document.getElementById('fighter-progress');
+    if (fighterProgress) {
+      fighterProgress.style.width = Math.min(team.fighterProgress, 100) + '%';
+    }
+
+    const bomberProgress = document.getElementById('bomber-progress');
+    if (bomberProgress) {
+      bomberProgress.style.width = Math.min(team.bomberProgress, 100) + '%';
+    }
   },
 
   /**
@@ -551,18 +640,175 @@ const UIControls = {
       return;
     }
 
-    const targetName = prompt(`Enter target city name (range: ${maxRange}km):\n\n` +
-      targets.map(t => t.name).join(', '));
+    // Show visual target selection
+    this.showVisualTargetSelector(airbaseCity, targets, maxRange);
+  },
 
-    if (!targetName) return;
+  /**
+   * Show visual target selector with range circle and clickable targets
+   */
+  showVisualTargetSelector(airbaseCity, targets, maxRange) {
+    const self = this;
 
-    const target = targets.find(t => t.name.toLowerCase() === targetName.toLowerCase());
-    if (target) {
-      ProductionSystem.setBomberOrders(airbaseCity.id, target.id);
-      alert(`Set bomber target to ${target.name}`);
-      this.showCityPopup(airbaseCity);
-    } else {
-      alert('Target not found or not in range');
+    // Get SVG and projection from Renderer
+    const svg = Renderer.svg;
+    const projection = Renderer.projection;
+    if (!svg || !projection) return;
+
+    // Create target selection layer
+    let targetLayer = svg.select('.target-selection-layer');
+    if (targetLayer.empty()) {
+      targetLayer = svg.append('g').attr('class', 'target-selection-layer');
+    }
+
+    // Clear previous selection UI
+    targetLayer.selectAll('*').remove();
+
+    // Draw range circle
+    const rangeCirclePoints = this.generateRangeCircle(airbaseCity, maxRange, 64);
+    const lineGenerator = d3.svg.line()
+      .x(function(d) { return d[0]; })
+      .y(function(d) { return d[1]; })
+      .interpolate('linear');
+
+    const projectedPoints = rangeCirclePoints.map(function(p) {
+      return projection([p.lon, p.lat]);
+    }).filter(function(p) { return p !== null; });
+
+    if (projectedPoints.length > 0) {
+      targetLayer.append('path')
+        .attr('class', 'range-circle')
+        .attr('d', lineGenerator(projectedPoints) + 'Z')
+        .style('fill', 'rgba(255, 255, 0, 0.1)')
+        .style('stroke', '#ff0')
+        .style('stroke-width', 2)
+        .style('stroke-dasharray', '5,5');
+    }
+
+    // Highlight target cities
+    targets.forEach(function(target) {
+      const projected = projection([target.lon, target.lat]);
+      if (!projected) return;
+
+      // Check visibility
+      const rotation = projection.rotate();
+      const centerLon = -rotation[0];
+      const centerLat = -rotation[1];
+      const toRad = Math.PI / 180;
+      const lat1 = centerLat * toRad;
+      const lat2 = target.lat * toRad;
+      const dLon = (target.lon - centerLon) * toRad;
+      const cosAngle = Math.sin(lat1) * Math.sin(lat2) +
+                       Math.cos(lat1) * Math.cos(lat2) * Math.cos(dLon);
+      if (cosAngle < 0) return;
+
+      const group = targetLayer.append('g')
+        .attr('class', 'target-marker')
+        .attr('transform', 'translate(' + projected[0] + ', ' + projected[1] + ')')
+        .style('cursor', 'pointer');
+
+      // Target highlight ring
+      group.append('circle')
+        .attr('r', 8)
+        .style('fill', 'rgba(255, 0, 0, 0.3)')
+        .style('stroke', '#f00')
+        .style('stroke-width', 2);
+
+      // Inner dot
+      group.append('circle')
+        .attr('r', 3)
+        .style('fill', '#f00');
+
+      // Target name label
+      group.append('text')
+        .attr('x', 12)
+        .attr('y', 4)
+        .style('fill', '#fff')
+        .style('font-size', '10px')
+        .style('font-weight', 'bold')
+        .style('text-shadow', '1px 1px 2px #000')
+        .text(target.name);
+
+      // Click handler
+      group.on('click', function() {
+        d3.event.stopPropagation();
+        ProductionSystem.setBomberOrders(airbaseCity.id, target.id);
+        self.clearTargetSelection();
+        self.showCityPopup(airbaseCity);
+        alert('Set bomber target to ' + target.name);
+      });
+    });
+
+    // Add cancel button/instruction
+    const cancelGroup = targetLayer.append('g')
+      .attr('class', 'cancel-selection')
+      .attr('transform', 'translate(10, 30)')
+      .style('cursor', 'pointer');
+
+    cancelGroup.append('rect')
+      .attr('width', 120)
+      .attr('height', 25)
+      .attr('rx', 4)
+      .style('fill', 'rgba(0, 0, 0, 0.8)');
+
+    cancelGroup.append('text')
+      .attr('x', 60)
+      .attr('y', 17)
+      .attr('text-anchor', 'middle')
+      .style('fill', '#fff')
+      .style('font-size', '12px')
+      .text('Cancel Selection');
+
+    cancelGroup.on('click', function() {
+      self.clearTargetSelection();
+    });
+
+    // Also allow clicking outside to cancel
+    svg.on('click.targetSelect', function() {
+      self.clearTargetSelection();
+    });
+  },
+
+  /**
+   * Generate points for a range circle on the globe
+   */
+  generateRangeCircle(center, radiusKm, numPoints) {
+    const points = [];
+    const R = 6371; // Earth radius in km
+    const angularDistance = radiusKm / R;
+
+    for (let i = 0; i <= numPoints; i++) {
+      const bearing = (i / numPoints) * 2 * Math.PI;
+
+      const lat1 = center.lat * Math.PI / 180;
+      const lon1 = center.lon * Math.PI / 180;
+
+      const lat2 = Math.asin(
+        Math.sin(lat1) * Math.cos(angularDistance) +
+        Math.cos(lat1) * Math.sin(angularDistance) * Math.cos(bearing)
+      );
+
+      const lon2 = lon1 + Math.atan2(
+        Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(lat1),
+        Math.cos(angularDistance) - Math.sin(lat1) * Math.sin(lat2)
+      );
+
+      points.push({
+        lat: lat2 * 180 / Math.PI,
+        lon: lon2 * 180 / Math.PI
+      });
+    }
+
+    return points;
+  },
+
+  /**
+   * Clear target selection UI
+   */
+  clearTargetSelection() {
+    if (Renderer.svg) {
+      Renderer.svg.select('.target-selection-layer').selectAll('*').remove();
+      Renderer.svg.on('click.targetSelect', null);
     }
   }
 };

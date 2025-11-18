@@ -400,14 +400,27 @@
                     <span class="stat-value" id="player-aircraft">0F / 0B</span>
                 </div>
 
-                <!-- Production Controls -->
-                <h4 style="margin: 10px 0 5px 0; color: #aaa;">Build Units</h4>
-                <div class="button-group">
-                    <button id="build-fighter-btn" style="font-size: 12px;">Fighter (1M)</button>
-                    <button id="build-bomber-btn" style="font-size: 12px;">Bomber (3M)</button>
+                <!-- Production Allocation -->
+                <h4 style="margin: 10px 0 5px 0; color: #aaa;">Production Allocation</h4>
+                <div style="margin: 5px 0;">
+                    <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                        <span id="fighter-template-name">Falcon</span>
+                        <span id="fighter-allocation-pct">50%</span>
+                    </div>
+                    <input type="range" id="fighter-allocation" min="0" max="100" value="50" style="width: 100%;">
+                    <div style="background: #333; border-radius: 3px; height: 8px; margin-top: 3px;">
+                        <div id="fighter-progress" style="background: #f39c12; height: 100%; border-radius: 3px; width: 0%;"></div>
+                    </div>
                 </div>
-                <div id="production-queue" style="font-size: 11px; color: #888; margin-top: 5px;">
-                    Queue: idle
+                <div style="margin: 5px 0;">
+                    <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                        <span id="bomber-template-name">Condor</span>
+                        <span id="bomber-allocation-pct">50%</span>
+                    </div>
+                    <input type="range" id="bomber-allocation" min="0" max="100" value="50" style="width: 100%;">
+                    <div style="background: #333; border-radius: 3px; height: 8px; margin-top: 3px;">
+                        <div id="bomber-progress" style="background: #f39c12; height: 100%; border-radius: 3px; width: 0%;"></div>
+                    </div>
                 </div>
             </div>
 
@@ -734,6 +747,51 @@
                 });
 
             foreground.call(drag);
+
+            // Zoom with scroll wheel
+            const initialScale = projection.scale();
+            const minScale = initialScale * 0.5;
+            const maxScale = initialScale * 5;
+
+            d3.select("#globe-container").on("wheel", function() {
+                d3.event.preventDefault();
+                const delta = d3.event.deltaY;
+                let scale = projection.scale();
+
+                if (delta < 0) {
+                    scale *= 1.1; // Zoom in
+                } else {
+                    scale /= 1.1; // Zoom out
+                }
+
+                scale = Math.max(minScale, Math.min(maxScale, scale));
+                projection.scale(scale);
+                svg.selectAll("path").attr("d", path);
+
+                if (Renderer.svg) {
+                    Renderer.render();
+                }
+            });
+
+            // Middle-click to reset zoom
+            d3.select("#globe-container").on("mousedown", function() {
+                if (d3.event.button === 1) { // Middle mouse button
+                    d3.event.preventDefault();
+                    projection.scale(initialScale);
+                    svg.selectAll("path").attr("d", path);
+
+                    if (Renderer.svg) {
+                        Renderer.render();
+                    }
+                }
+            });
+
+            // Prevent context menu on middle-click
+            d3.select("#globe-container").on("contextmenu", function() {
+                if (d3.event.button === 1) {
+                    d3.event.preventDefault();
+                }
+            });
 
             // Initialize renderer
             Renderer.initialize(svg, projection, path);

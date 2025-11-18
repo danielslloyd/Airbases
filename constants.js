@@ -62,6 +62,21 @@ const CONSTANTS = {
   PLACEHOLDER_MIN_SPACING_KM: 500,       // Minimum distance between placeholders
 };
 
+// Animal names for random plane naming
+const ANIMAL_NAMES = [
+  'Falcon', 'Eagle', 'Hawk', 'Condor', 'Vulture', 'Osprey', 'Kestrel', 'Harrier',
+  'Mustang', 'Stallion', 'Bronco', 'Thunderbolt', 'Lightning', 'Tempest', 'Typhoon',
+  'Cobra', 'Viper', 'Python', 'Mamba', 'Rattler', 'Sidewinder',
+  'Tiger', 'Panther', 'Jaguar', 'Leopard', 'Cougar', 'Lynx', 'Wildcat', 'Bobcat',
+  'Wolf', 'Fox', 'Coyote', 'Jackal', 'Dingo',
+  'Bear', 'Grizzly', 'Kodiak', 'Polar',
+  'Dragon', 'Phoenix', 'Griffin', 'Pegasus', 'Chimera',
+  'Shark', 'Barracuda', 'Marlin', 'Swordfish', 'Stingray',
+  'Raven', 'Crow', 'Magpie', 'Sparrow', 'Wren',
+  'Hornet', 'Wasp', 'Scorpion', 'Mantis', 'Dragonfly',
+  'Badger', 'Wolverine', 'Weasel', 'Mongoose', 'Marten'
+];
+
 // Default Aircraft Templates
 const DEFAULT_TEMPLATES = {
   fighter: {
@@ -71,7 +86,7 @@ const DEFAULT_TEMPLATES = {
     rangePoints: 50,
     offense: 30,
     defense: 30,
-    name: 'Default Fighter'
+    name: 'Falcon'
   },
   bomber: {
     id: 'tmpl-bomber-default',
@@ -80,7 +95,7 @@ const DEFAULT_TEMPLATES = {
     rangePoints: 50,
     offense: 30,
     defense: 20,
-    name: 'Default Bomber'
+    name: 'Condor'
   }
 };
 
