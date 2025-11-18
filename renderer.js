@@ -1,4 +1,5 @@
 // Renderer - Draw cities, airbases, raids, and country coloring on the globe
+// Compatible with D3 v3
 
 const Renderer = {
   svg: null,
@@ -56,7 +57,7 @@ const Renderer = {
 
     // Bind city data
     const cityGroups = this.cityLayer.selectAll('.city-group')
-      .data(GameState.cities, d => d.id);
+      .data(GameState.cities, function(d) { return d.id; });
 
     // Enter new cities
     const entering = cityGroups.enter()
@@ -92,10 +93,8 @@ const Renderer = {
       .attr('class', 'capture-ring')
       .style('display', 'none');
 
-    // Update all cities
-    const allCities = entering.merge(cityGroups);
-
-    allCities.each(function(city) {
+    // Update all cities (D3 v3 style - reselect after enter)
+    this.cityLayer.selectAll('.city-group').each(function(city) {
       const group = d3.select(this);
       const projected = self.projection([city.lon, city.lat]);
 
@@ -105,7 +104,7 @@ const Renderer = {
       }
 
       group.style('display', null);
-      group.attr('transform', `translate(${projected[0]}, ${projected[1]})`);
+      group.attr('transform', 'translate(' + projected[0] + ', ' + projected[1] + ')');
 
       // Update city dot
       const dot = group.select('.city-dot');
@@ -196,7 +195,7 @@ const Renderer = {
     const self = this;
 
     const raidPaths = this.raidLayer.selectAll('.raid-path')
-      .data(GameState.activeRaids, d => d.id);
+      .data(GameState.activeRaids, function(d) { return d.id; });
 
     // Enter
     raidPaths.enter()
@@ -207,44 +206,44 @@ const Renderer = {
       .style('stroke-dasharray', '5,5')
       .style('opacity', 0.7);
 
-    // Update
-    raidPaths.merge(raidPaths.enter().select('.raid-path'))
-      .each(function(raid) {
-        const path = d3.select(this);
-        const fromCity = GameState.getCity(raid.fromCityId);
-        const toCity = GameState.getCity(raid.toCityId);
+    // Update all raid paths (D3 v3 style)
+    this.raidLayer.selectAll('.raid-path').each(function(raid) {
+      const pathEl = d3.select(this);
+      const fromCity = GameState.getCity(raid.fromCityId);
+      const toCity = GameState.getCity(raid.toCityId);
 
-        if (!fromCity || !toCity) {
-          path.style('display', 'none');
-          return;
-        }
+      if (!fromCity || !toCity) {
+        pathEl.style('display', 'none');
+        return;
+      }
 
-        // Sample great circle path
-        const pathPoints = MapUtils.sampleGreatCirclePath(
-          fromCity.lat, fromCity.lon,
-          toCity.lat, toCity.lon,
-          20
-        );
+      // Sample great circle path
+      const pathPoints = MapUtils.sampleGreatCirclePath(
+        fromCity.lat, fromCity.lon,
+        toCity.lat, toCity.lon,
+        20
+      );
 
-        // Project points
-        const projectedPoints = pathPoints.map(p => self.projection([p.lon, p.lat]))
-          .filter(p => p !== null);
+      // Project points
+      const projectedPoints = pathPoints.map(function(p) {
+        return self.projection([p.lon, p.lat]);
+      }).filter(function(p) { return p !== null; });
 
-        if (projectedPoints.length === 0) {
-          path.style('display', 'none');
-          return;
-        }
+      if (projectedPoints.length === 0) {
+        pathEl.style('display', 'none');
+        return;
+      }
 
-        // Create line
-        const lineGenerator = d3.svg.line()
-          .x(d => d[0])
-          .y(d => d[1])
-          .interpolate('linear');
+      // Create line
+      const lineGenerator = d3.svg.line()
+        .x(function(d) { return d[0]; })
+        .y(function(d) { return d[1]; })
+        .interpolate('linear');
 
-        path.style('display', null)
-          .attr('d', lineGenerator(projectedPoints))
-          .style('stroke', GameState.teams[raid.team].color);
-      });
+      pathEl.style('display', null)
+        .attr('d', lineGenerator(projectedPoints))
+        .style('stroke', GameState.teams[raid.team].color);
+    });
 
     // Exit
     raidPaths.exit().remove();
@@ -277,7 +276,7 @@ const Renderer = {
    */
   showCityTooltip(city, element) {
     // Create tooltip if it doesn't exist
-    let tooltip = d3.select('#city-tooltip');
+    var tooltip = d3.select('#city-tooltip');
     if (tooltip.empty()) {
       tooltip = d3.select('body').append('div')
         .attr('id', 'city-tooltip')
@@ -296,17 +295,17 @@ const Renderer = {
 
     // Get aircraft counts
     const aircraft = GameState.getAircraftAtCity(city.id);
-    const fighters = aircraft.filter(a => a.type === 'fighter').length;
-    const bombers = aircraft.filter(a => a.type === 'bomber').length;
+    const fighters = aircraft.filter(function(a) { return a.type === 'fighter'; }).length;
+    const bombers = aircraft.filter(function(a) { return a.type === 'bomber'; }).length;
 
     // Build tooltip content
-    let content = `<strong>${city.name}</strong><br/>`;
-    content += `Country: ${city.country}<br/>`;
-    content += `Owner: ${city.owner || 'Neutral'}<br/>`;
-    content += `HP: ${city.hp.toFixed(1)}<br/>`;
-    content += `Production: ${production.toFixed(2)}M/min<br/>`;
+    var content = '<strong>' + city.name + '</strong><br/>';
+    content += 'Country: ' + city.country + '<br/>';
+    content += 'Owner: ' + (city.owner || 'Neutral') + '<br/>';
+    content += 'HP: ' + city.hp.toFixed(1) + '<br/>';
+    content += 'Production: ' + production.toFixed(2) + 'M/min<br/>';
     if (aircraft.length > 0) {
-      content += `Aircraft: ${fighters}F / ${bombers}B`;
+      content += 'Aircraft: ' + fighters + 'F / ' + bombers + 'B';
     }
 
     tooltip.html(content)
