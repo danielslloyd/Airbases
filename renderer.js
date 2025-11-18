@@ -103,6 +103,28 @@ const Renderer = {
         return;
       }
 
+      // Check if city is on the visible side of the globe
+      // Get rotation center and check angular distance
+      const rotation = self.projection.rotate();
+      const centerLon = -rotation[0];
+      const centerLat = -rotation[1];
+
+      // Calculate angular distance from center (simplified great circle check)
+      const toRad = Math.PI / 180;
+      const lat1 = centerLat * toRad;
+      const lat2 = city.lat * toRad;
+      const dLon = (city.lon - centerLon) * toRad;
+
+      // Cosine of angular distance
+      const cosAngle = Math.sin(lat1) * Math.sin(lat2) +
+                       Math.cos(lat1) * Math.cos(lat2) * Math.cos(dLon);
+
+      // If cosAngle < 0, the point is on the far side (> 90 degrees away)
+      if (cosAngle < 0) {
+        group.style('display', 'none');
+        return;
+      }
+
       group.style('display', null);
       group.attr('transform', 'translate(' + projected[0] + ', ' + projected[1] + ')');
 

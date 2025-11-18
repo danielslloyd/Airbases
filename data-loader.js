@@ -87,16 +87,35 @@ const DataLoader = {
    * @returns {Array} Array of city objects
    */
   processCities(citiesData, countries) {
+    // Sort cities by population (descending) so we process largest first
+    const sortedData = citiesData.slice().sort((a, b) => {
+      return (parseInt(b.population) || 0) - (parseInt(a.population) || 0);
+    });
+
     const cities = [];
     let idCounter = 0;
 
-    citiesData.forEach(row => {
+    sortedData.forEach(row => {
+      const lat = parseFloat(row.lat);
+      const lon = parseFloat(row.lon);
+      const population = parseInt(row.population) || 0;
+
+      // Skip if too close to an already-placed (larger) city
+      const tooClose = cities.some(existing => {
+        return MapUtils.greatCircleDistance(
+          lat, lon,
+          existing.lat, existing.lon
+        ) < CONSTANTS.MIN_CITY_SPACING_KM;
+      });
+
+      if (tooClose) return; // Skip this city
+
       const city = {
         id: `city-${idCounter++}`,
         name: row.city || 'Unnamed',
-        lat: parseFloat(row.lat),
-        lon: parseFloat(row.lon),
-        population: parseInt(row.population) || 0,
+        lat: lat,
+        lon: lon,
+        population: population,
         country: row.country || 'Unknown',
         owner: null,
         hp: 100,
