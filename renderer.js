@@ -357,6 +357,64 @@ const Renderer = {
   renderRaids() {
     const self = this;
 
+    // First, render all airbase target lines (always visible)
+    const targetLines = [];
+    GameState.cities.forEach(function(city) {
+      if (city.hasAirbase && city.airbase && city.airbase.complete && city.airbase.orders) {
+        const targetCity = GameState.getCity(city.airbase.orders.targetCityId);
+        if (targetCity) {
+          targetLines.push({
+            id: 'target-' + city.id,
+            fromCity: city,
+            toCity: targetCity,
+            team: city.owner,
+            isTargetLine: true
+          });
+        }
+      }
+    });
+
+    // Render target lines
+    const targetPaths = this.raidLayer.selectAll('.target-line')
+      .data(targetLines, function(d) { return d.id; });
+
+    targetPaths.enter()
+      .append('path')
+      .attr('class', 'target-line')
+      .style('fill', 'none')
+      .style('stroke-width', 1)
+      .style('stroke-dasharray', '3,3')
+      .style('opacity', 0.3);
+
+    this.raidLayer.selectAll('.target-line').each(function(line) {
+      const pathEl = d3.select(this);
+      const pathPoints = MapUtils.sampleGreatCirclePath(
+        line.fromCity.lat, line.fromCity.lon,
+        line.toCity.lat, line.toCity.lon,
+        20
+      );
+      const projectedPoints = pathPoints.map(function(p) {
+        return self.projection([p.lon, p.lat]);
+      }).filter(function(p) { return p !== null; });
+
+      if (projectedPoints.length === 0) {
+        pathEl.style('display', 'none');
+        return;
+      }
+
+      const lineGenerator = d3.svg.line()
+        .x(function(d) { return d[0]; })
+        .y(function(d) { return d[1]; })
+        .interpolate('linear');
+
+      pathEl.style('display', null)
+        .attr('d', lineGenerator(projectedPoints))
+        .style('stroke', GameState.teams[line.team].color);
+    });
+
+    targetPaths.exit().remove();
+
+    // Now render active raid paths (brighter)
     const raidPaths = this.raidLayer.selectAll('.raid-path')
       .data(GameState.activeRaids, function(d) { return d.id; });
 
