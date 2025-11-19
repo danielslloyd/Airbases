@@ -8,6 +8,8 @@ const UIControls = {
   aiTeam: 'Blue',
   team1Name: 'Red',
   team2Name: 'Blue',
+  combatLogEntries: [],
+  maxLogEntries: 50,
 
   // Named colors for team naming
   namedColors: {
@@ -524,6 +526,12 @@ const UIControls = {
 
     // Update production allocation UI
     this.updateProductionUI();
+
+    // Update bases panel
+    this.updateBasesPanel();
+
+    // Update popup live stats
+    this.updatePopupLive();
   },
 
   /**
@@ -642,14 +650,23 @@ const UIControls = {
         setBomberTargetBtn.style.display = 'none';
       }
 
-      // Re-base button
+      // Re-base button - show if any aircraft assigned (use assigned, not just idle)
       const rebaseBtn = document.getElementById('rebase-btn');
       if (rebaseBtn && city.hasAirbase && city.airbase && city.airbase.complete) {
-        const aircraftHere = GameState.getAircraftAtCity(city.id);
+        const aircraftHere = GameState.getAircraftAssignedToCity(city.id);
+        const idleAircraft = GameState.getAircraftAtCity(city.id);
         if (aircraftHere.length > 0) {
           rebaseBtn.style.display = 'block';
+          rebaseBtn.textContent = idleAircraft.length > 0 ?
+            `Re-base Aircraft (${idleAircraft.length})` :
+            'Re-base (wait for return)';
+          rebaseBtn.disabled = idleAircraft.length === 0;
           rebaseBtn.onclick = () => {
-            this.showRebaseSelector(city);
+            if (idleAircraft.length > 0) {
+              this.showRebaseSelector(city);
+            } else {
+              console.log('Cannot rebase - aircraft are in flight');
+            }
           };
         } else {
           rebaseBtn.style.display = 'none';
@@ -661,13 +678,47 @@ const UIControls = {
       // Show warning if bombers but no target
       const warningIndicator = document.getElementById('popup-warning');
       if (warningIndicator) {
-        const bombers = GameState.getBombersAtCity(city.id);
+        const bombers = GameState.getBombersAssignedToCity(city.id);
         if (bombers.length > 0 && (!city.airbase.orders || !city.airbase.orders.targetCityId)) {
           warningIndicator.style.display = 'block';
           warningIndicator.textContent = '! NO TARGET';
         } else {
           warningIndicator.style.display = 'none';
         }
+      }
+
+      // Fighter assignment slider
+      const fighterControl = document.getElementById('fighter-assignment-control');
+      const escortSlider = document.getElementById('escort-allocation');
+      const escortPct = document.getElementById('escort-pct');
+
+      if (fighterControl && city.hasAirbase && city.airbase) {
+        const fighters = GameState.getFightersAtCity(city.id);
+        if (fighters.length > 0) {
+          fighterControl.style.display = 'block';
+          const pct = Math.round(city.airbase.escortAllocation * 100);
+          escortSlider.value = pct;
+          escortPct.textContent = pct + '%';
+
+          escortSlider.oninput = (e) => {
+            const val = parseInt(e.target.value) / 100;
+            city.airbase.escortAllocation = val;
+            escortPct.textContent = e.target.value + '%';
+          };
+        } else {
+          fighterControl.style.display = 'none';
+        }
+      } else if (fighterControl) {
+        fighterControl.style.display = 'none';
+      }
+
+      // Show target info
+      const targetEl = document.getElementById('popup-target');
+      if (targetEl && city.airbase.orders) {
+        const target = GameState.getCity(city.airbase.orders.targetCityId);
+        targetEl.textContent = target ? target.name : '-';
+      } else if (targetEl) {
+        targetEl.textContent = '-';
       }
     } else {
       airbaseControls.style.display = 'none';
@@ -1026,6 +1077,177 @@ const UIControls = {
     if (Renderer.svg) {
       Renderer.svg.select('.target-selection-layer').selectAll('*').remove();
       Renderer.svg.on('click.targetSelect', null);
+    }
+  },
+
+  /**
+   * Add entry to combat log
+   * @param {string} message - Log message
+   * @param {string} type - 'damage', 'kill', 'capture', 'info'
+   */
+  addCombatLog(message, type = 'info') {
+    const colors = {
+      damage: '#ff6600',
+      kill: '#ff0000',
+      capture: '#ffff00',
+      info: '#808080'
+    };
+
+    const entry = {
+      time: GameState.elapsedSeconds,
+      message: message,
+      color: colors[type] || colors.info
+    };
+
+    this.combatLogEntries.unshift(entry);
+    if (this.combatLogEntries.length > this.maxLogEntries) {
+      this.combatLogEntries.pop();
+    }
+
+    this.updateCombatLog();
+  },
+
+  /**
+   * Update combat log display
+   */
+  updateCombatLog() {
+    const container = document.getElementById('combat-log-entries');
+    if (!container) return;
+
+    container.innerHTML = '';
+    for (const entry of this.combatLogEntries) {
+      const div = document.createElement('div');
+      div.style.cssText = `color: ${entry.color}; margin: 2px 0;`;
+      const mins = Math.floor(entry.time / 60);
+      const secs = Math.floor(entry.time % 60);
+      div.textContent = `[${mins}:${secs.toString().padStart(2, '0')}] ${entry.message}`;
+      container.appendChild(div);
+    }
+  },
+
+  /**
+   * Update bases info panel
+   */
+  updateBasesPanel() {
+    const container = document.getElementById('bases-list');
+    if (!container) return;
+
+    const team = GameState.teams[this.playerTeam];
+    if (!team) return;
+
+    container.innerHTML = '';
+
+    // Get all player airbases
+    const airbases = GameState.cities.filter(c =>
+      c.owner === this.playerTeam && c.hasAirbase && c.airbase && c.airbase.complete
+    );
+
+    for (const base of airbases) {
+      const baseDiv = document.createElement('div');
+      baseDiv.style.cssText = 'margin-bottom: 8px; padding: 4px; background: #1a1a1a; border: 1px solid #333;';
+
+      // Base name
+      const nameDiv = document.createElement('div');
+      nameDiv.style.cssText = 'font-weight: bold; color: #00ff00; margin-bottom: 4px;';
+      nameDiv.textContent = base.name;
+      baseDiv.appendChild(nameDiv);
+
+      // Target info
+      if (base.airbase.orders) {
+        const target = GameState.getCity(base.airbase.orders.targetCityId);
+        if (target) {
+          const targetDiv = document.createElement('div');
+          targetDiv.style.cssText = 'color: #ff6600; font-size: 8px;';
+          targetDiv.textContent = `→ ${target.name}`;
+          baseDiv.appendChild(targetDiv);
+        }
+      }
+
+      // Aircraft by template - include in-air aircraft
+      const aircraft = GameState.getAircraftAssignedToCity(base.id);
+      const templateCounts = {};
+
+      for (const a of aircraft) {
+        const template = GameState.getTemplate(a.templateId);
+        if (!template) continue;
+        const key = template.name;
+        if (!templateCounts[key]) {
+          templateCounts[key] = { fighter: 0, bomber: 0, template: template };
+        }
+        if (template.type === 'fighter') {
+          templateCounts[key].fighter++;
+        } else {
+          templateCounts[key].bomber++;
+        }
+      }
+
+      // Display icons
+      const iconsDiv = document.createElement('div');
+      iconsDiv.style.cssText = 'display: flex; flex-wrap: wrap; gap: 2px;';
+
+      for (const [name, counts] of Object.entries(templateCounts)) {
+        if (counts.fighter > 0) {
+          const icon = document.createElement('span');
+          icon.style.cssText = 'color: #5af; font-size: 8px;';
+          icon.textContent = `${counts.fighter}×F`;
+          icon.title = `${counts.fighter} ${name} (Fighter)`;
+          iconsDiv.appendChild(icon);
+        }
+        if (counts.bomber > 0) {
+          const icon = document.createElement('span');
+          icon.style.cssText = 'color: #fa5; font-size: 8px;';
+          icon.textContent = `${counts.bomber}×B`;
+          icon.title = `${counts.bomber} ${name} (Bomber)`;
+          iconsDiv.appendChild(icon);
+        }
+      }
+
+      baseDiv.appendChild(iconsDiv);
+      container.appendChild(baseDiv);
+    }
+  },
+
+  /**
+   * Update popup stats live
+   */
+  updatePopupLive() {
+    if (!this.selectedCity) return;
+
+    const city = this.selectedCity;
+    const popup = document.getElementById('city-popup');
+    if (!popup || popup.style.display === 'none') return;
+
+    // Update dynamic stats
+    document.getElementById('popup-city-hp').textContent = city.hp.toFixed(1);
+
+    const production = city.owner ? ProductionSystem.getCityProduction(city, city.owner) : 0;
+    document.getElementById('popup-city-production').textContent = production.toFixed(2) + 'M/min';
+
+    // Aircraft count - include in-air for this base
+    const assigned = GameState.getAircraftAssignedToCity(city.id);
+    const fighters = assigned.filter(a => a.type === 'fighter').length;
+    const bombers = assigned.filter(a => a.type === 'bomber').length;
+    document.getElementById('popup-aircraft-count').textContent = `${fighters}F / ${bombers}B`;
+
+    // Target info
+    const targetEl = document.getElementById('popup-target');
+    if (targetEl && city.hasAirbase && city.airbase && city.airbase.orders) {
+      const target = GameState.getCity(city.airbase.orders.targetCityId);
+      targetEl.textContent = target ? target.name : '-';
+    } else if (targetEl) {
+      targetEl.textContent = '-';
+    }
+
+    // Warning indicator
+    const warningIndicator = document.getElementById('popup-warning');
+    if (warningIndicator && city.hasAirbase && city.airbase) {
+      const bombers = GameState.getBombersAssignedToCity(city.id);
+      if (bombers.length > 0 && (!city.airbase.orders || !city.airbase.orders.targetCityId)) {
+        warningIndicator.style.display = 'block';
+        warningIndicator.textContent = '! NO TARGET';
+      } else {
+        warningIndicator.style.display = 'none';
+      }
     }
   }
 };

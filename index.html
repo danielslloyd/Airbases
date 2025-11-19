@@ -171,7 +171,7 @@
         .boundary {
             fill: none;
             stroke: #605C58;
-            stroke-width: 0.5px;
+            stroke-width: 3px;
         }
 
         .globe-sphere {
@@ -523,16 +523,43 @@
                     <span class="stat-label">Aircraft:</span>
                     <span class="stat-value" id="popup-aircraft-count">-</span>
                 </div>
+                <div class="stat-row">
+                    <span class="stat-label">Target:</span>
+                    <span class="stat-value" id="popup-target">-</span>
+                </div>
             </div>
 
             <div id="popup-airbase-controls" class="popup-section">
                 <h3>Airbase Controls</h3>
                 <div id="popup-warning" class="warning-indicator" style="display: none; margin: 5px 0;"></div>
+
+                <!-- Fighter assignment slider -->
+                <div id="fighter-assignment-control" style="margin: 8px 0; display: none;">
+                    <div style="display: flex; justify-content: space-between; font-size: 10px;">
+                        <span>Defend</span>
+                        <span id="escort-pct">50%</span>
+                        <span>Escort</span>
+                    </div>
+                    <input type="range" id="escort-allocation" min="0" max="100" value="50" style="width: 100%;">
+                </div>
+
                 <button id="build-airbase-btn" style="width: 100%; margin: 3px 0;">Build Airbase (50M)</button>
                 <button id="set-delivery-btn" style="width: 100%; margin: 3px 0;">Set Delivery</button>
                 <button id="set-bomber-target-btn" style="width: 100%; margin: 3px 0;">Set Target</button>
                 <button id="rebase-btn" style="width: 100%; margin: 3px 0;">Re-base Aircraft</button>
             </div>
+        </div>
+
+        <!-- Combat Log -->
+        <div id="combat-log" style="position: absolute; bottom: 10px; left: 270px; width: 300px; max-height: 150px; background: rgba(10, 10, 10, 0.95); border: 1px solid #333; padding: 8px; overflow-y: auto; z-index: 100; font-size: 9px;">
+            <h4 style="margin: 0 0 5px 0; color: #00ff00; font-size: 10px;">Combat Log</h4>
+            <div id="combat-log-entries"></div>
+        </div>
+
+        <!-- Bases Info Panel -->
+        <div id="bases-info-panel" style="position: absolute; right: 0; top: 30px; width: 200px; height: calc(100% - 30px); background: rgba(10, 10, 10, 0.95); border-left: 1px solid #333; padding: 8px; overflow-y: auto; z-index: 100; font-size: 9px;">
+            <h4 style="margin: 0 0 8px 0; color: #00ff00; font-size: 10px;">Airbases</h4>
+            <div id="bases-list"></div>
         </div>
     </div>
 

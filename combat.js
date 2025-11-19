@@ -56,6 +56,16 @@ const CombatSystem = {
       console.log(`  Attacker losses: ${attackerLosses.length}, Defender losses: ${defenderLosses.length}`);
     }
 
+    // Log to combat log
+    if (typeof UIControls !== 'undefined') {
+      if (defenderLosses.length > 0) {
+        UIControls.addCombatLog(`${defenderLosses.length} enemy fighters shot down`, 'kill');
+      }
+      if (attackerLosses.length > 0) {
+        UIControls.addCombatLog(`${attackerLosses.length} friendly fighters lost`, 'kill');
+      }
+    }
+
     return { attackerLosses, defenderLosses };
   },
 
@@ -114,6 +124,16 @@ const CombatSystem = {
       console.log(`Bomber attack on ${targetCity.name}`);
       console.log(`  ${bombers.length} bombers, city defense: ${cityDefense}`);
       console.log(`  Bomber losses: ${bomberLosses.length}, Damage: ${totalDamage} HP`);
+    }
+
+    // Log to combat log
+    if (typeof UIControls !== 'undefined') {
+      if (totalDamage > 0) {
+        UIControls.addCombatLog(`${targetCity.name} hit for ${totalDamage} damage`, 'damage');
+      }
+      if (bomberLosses.length > 0) {
+        UIControls.addCombatLog(`${bomberLosses.length} bombers shot down over ${targetCity.name}`, 'kill');
+      }
     }
 
     return { bomberLosses, damageInflicted: totalDamage };
@@ -213,6 +233,11 @@ const CombatSystem = {
 
     if (GameState.debugLogCombat) {
       console.log(`${newOwner} captured ${city.name} from ${oldOwner || 'neutral'}`);
+    }
+
+    // Log to combat log
+    if (typeof UIControls !== 'undefined') {
+      UIControls.addCombatLog(`${newOwner} captured ${city.name}!`, 'capture');
     }
   },
 
