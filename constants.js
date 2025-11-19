@@ -13,7 +13,7 @@ const CONSTANTS = {
   HP_RECOVERY_PER_TICK: 60 / 600,        // 0.1 HP per 100ms tick
 
   // Production
-  POP_SCALE: 100000,                       // Divide population by this for production
+  POP_SCALE: 10000,                       // Divide population by this for production
   AIRBASE_COST_M: 50,                    // Cost to build an airbase (in Millions)
   BOMBER_BASE_COST_M: 3,                 // Default bomber cost
   FIGHTER_BASE_COST_M: 1,                // Default fighter cost
@@ -57,8 +57,8 @@ const CONSTANTS = {
   CAPTURE_RING_WIDTH: 2,                 // Width of capture progress ring
 
   // Raid timing
-  RAID_SPEED_KM_PER_SEC: 20,             // Aircraft travel at 10 km/sec
-  RAID_REST_TIME_S: 5,                   // Rest time after returning from raid
+  RAID_SPEED_KM_PER_SEC: 100,             // Aircraft travel at 10 km/sec
+  RAID_REST_TIME_S: 3,                   // Rest time after returning from raid
 
   // City Filtering
   MIN_CITY_SPACING_KM: 200,              // Minimum distance between cities
