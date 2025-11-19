@@ -49,6 +49,9 @@ const CONSTANTS = {
   OCEAN_COLOR: '#E0DCD7',                // Ocean/water color
   LAND_COLOR: '#B8B0A7',                 // Land/terrain color
 
+  // Feature Toggles
+  SHOW_PLANE_SILHOUETTES: true,          // Show SVG plane silhouettes in airbase panel (set to false to disable)
+
   // Rendering
   CITY_DOT_RADIUS: 4,                    // Radius for city dots (larger)
   CITY_DOT_RADIUS_PLACEHOLDER: 2.5,      // Radius for placeholder cities
