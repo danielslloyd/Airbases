@@ -1183,21 +1183,55 @@ const UIControls = {
 
       // Display icons
       const iconsDiv = document.createElement('div');
-      iconsDiv.style.cssText = 'display: flex; flex-wrap: wrap; gap: 2px;';
+      iconsDiv.style.cssText = 'display: flex; flex-wrap: wrap; gap: 4px; align-items: center;';
 
       for (const [name, counts] of Object.entries(templateCounts)) {
         if (counts.fighter > 0) {
           const icon = document.createElement('span');
-          icon.style.cssText = 'color: #5af; font-size: 8px;';
-          icon.textContent = `${counts.fighter}×F`;
-          icon.title = `${counts.fighter} ${name} (Fighter)`;
+          icon.style.cssText = 'display: inline-flex; align-items: center; gap: 2px;';
+
+          if (CONSTANTS.SHOW_PLANE_SILHOUETTES && typeof PlaneSilhouette !== 'undefined') {
+            // Show SVG silhouette
+            const svgContainer = document.createElement('span');
+            svgContainer.innerHTML = PlaneSilhouette.generatePreview(counts.template, '#5af', 20, 10);
+            svgContainer.style.cssText = 'display: inline-block; vertical-align: middle;';
+            icon.appendChild(svgContainer);
+
+            const countSpan = document.createElement('span');
+            countSpan.style.cssText = 'color: #5af; font-size: 8px;';
+            countSpan.textContent = `×${counts.fighter}`;
+            icon.appendChild(countSpan);
+          } else {
+            // Fallback to text
+            icon.style.cssText = 'color: #5af; font-size: 8px;';
+            icon.textContent = `${counts.fighter}×F`;
+          }
+
+          icon.title = `${counts.fighter} ${name} (Fighter)\nRange: ${counts.template.rangePoints}, Off: ${counts.template.offense}, Def: ${counts.template.defense}`;
           iconsDiv.appendChild(icon);
         }
         if (counts.bomber > 0) {
           const icon = document.createElement('span');
-          icon.style.cssText = 'color: #fa5; font-size: 8px;';
-          icon.textContent = `${counts.bomber}×B`;
-          icon.title = `${counts.bomber} ${name} (Bomber)`;
+          icon.style.cssText = 'display: inline-flex; align-items: center; gap: 2px;';
+
+          if (CONSTANTS.SHOW_PLANE_SILHOUETTES && typeof PlaneSilhouette !== 'undefined') {
+            // Show SVG silhouette
+            const svgContainer = document.createElement('span');
+            svgContainer.innerHTML = PlaneSilhouette.generatePreview(counts.template, '#fa5', 20, 10);
+            svgContainer.style.cssText = 'display: inline-block; vertical-align: middle;';
+            icon.appendChild(svgContainer);
+
+            const countSpan = document.createElement('span');
+            countSpan.style.cssText = 'color: #fa5; font-size: 8px;';
+            countSpan.textContent = `×${counts.bomber}`;
+            icon.appendChild(countSpan);
+          } else {
+            // Fallback to text
+            icon.style.cssText = 'color: #fa5; font-size: 8px;';
+            icon.textContent = `${counts.bomber}×B`;
+          }
+
+          icon.title = `${counts.bomber} ${name} (Bomber)\nRange: ${counts.template.rangePoints}, Off: ${counts.template.offense}, Def: ${counts.template.defense}`;
           iconsDiv.appendChild(icon);
         }
       }
